@@ -27,6 +27,16 @@ tmp/
 temp/
 logs/
 *.pid
+*.bak
+*.bak.*
+*.orig
+
+# 本机 compose 覆盖（建议复制 example 后本地使用，不纳入版本库）
+docker-compose.override.yml
+
+# 本机配置覆盖目录
+config/local/
+config/overrides/
 
 WeKnora
 WeKnora-lite

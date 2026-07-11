@@ -1,0 +1,22 @@
+services:
+  app:
+    # 本机调试示例：需要时覆盖端口/环境/卷，勿把真实值写入主 compose。
+    environment:
+      # 示例：仅在本机调试时改端口/代理/调试开关
+      # APP_DEBUG: "true"
+      # HTTP_PROXY: http://127.0.0.1:7890
+      # HTTPS_PROXY: http://127.0.0.1:7890
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      EMBEDDING_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # ports:
+    #   - "8080:8080"
+    # volumes:
+    #   - /abs/path/on/this/machine:/some/container/path
+
+  # 示例：如果本机需要额外的依赖服务，可只放在 override。
+  # ollama:
+  #   image: ollama/ollama
+  #   ports:
+  #     - "11434:11434"
