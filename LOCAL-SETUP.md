@@ -1,22 +1,43 @@
 # WeKnora 本地开发/部署说明
 
-## 分支约定
+## 远端与分支约定
 
-| 分支 | 用途 |
+| 名称 | 用途 |
 |---|---|
-| `main` | 跟随上游，不放本地部署定制 |
+| `origin` | 你的 fork（可 push） |
+| `upstream` | 官方 `Tencent/WeKnora`（只拉取） |
+| `main` | 跟踪 `upstream/main`，不放本地部署定制 |
 | `local/weknora-*` | 本机 override、部署调优、实验性修复 |
 
 推荐流程：
 
 ```bash
-git switch main
-git fetch origin
-git reset --hard origin/main
+# 首次 fork 后
+ git remote add upstream https://github.com/Tencent/WeKnora.git
 
-git switch local/weknora-config-backup
-git rebase main
+# 更新上游
+ git switch main
+ git fetch upstream
+ git reset --hard upstream/main
+
+# 继续维护本地分支
+ git switch local/weknora-config-backup
+ git rebase main
 ```
+
+如果要把本地定制备份到你自己的 GitHub：
+
+```bash
+git push -u origin local/weknora-config-backup
+```
+
+## fork 命名建议
+
+| 项 | 建议 |
+|---|---|
+| fork 仓库名 | 直接保留 `WeKnora` |
+| 原因 | 与上游一致最直观，脚本/文档/远端映射都更简单 |
+| 差异承载 | 用分支名区分，不靠改仓库名 |
 
 ## 本机 override 用法
 
