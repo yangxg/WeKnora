@@ -30,3 +30,32 @@ func TestGetWebSearchProviderTypesIncludesZhipuConfig(t *testing.T) {
 		t.Fatalf("unexpected content size config metadata: %+v", zhipu.ConfigFields[1])
 	}
 }
+
+// TestVolcengineProviderMetadataExposesNoEditableRequestOptions pins the
+// deliberate absence of ConfigFields. The same vendor is also driven by a
+// version-controlled search policy outside this service; a request option that
+// could be edited per tenant in the settings UI would be a policy the project
+// repository no longer describes, so the credential and the proxy are all this
+// provider accepts.
+func TestVolcengineProviderMetadataExposesNoEditableRequestOptions(t *testing.T) {
+	var volcengine *WebSearchProviderTypeInfo
+	providerTypes := GetWebSearchProviderTypes()
+	for i := range providerTypes {
+		if providerTypes[i].ID == string(WebSearchProviderTypeVolcengine) {
+			volcengine = &providerTypes[i]
+			break
+		}
+	}
+	if volcengine == nil {
+		t.Fatal("Volcengine provider metadata is missing")
+	}
+	if !volcengine.RequiresAPIKey || !volcengine.SupportsProxy {
+		t.Fatalf("unexpected Volcengine capability metadata: %+v", volcengine)
+	}
+	if volcengine.RequiresEngineID || volcengine.RequiresBaseURL || volcengine.SupportsOptionalAPIKey {
+		t.Fatalf("Volcengine should need only an API key: %+v", volcengine)
+	}
+	if len(volcengine.ConfigFields) != 0 {
+		t.Fatalf("len(ConfigFields) = %d, want 0", len(volcengine.ConfigFields))
+	}
+}

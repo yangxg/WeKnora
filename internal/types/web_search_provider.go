@@ -24,6 +24,7 @@ const (
 	WebSearchProviderTypeSearxng    WebSearchProviderType = "searxng"
 	WebSearchProviderTypeKeenable   WebSearchProviderType = "keenable"
 	WebSearchProviderTypeZhipu      WebSearchProviderType = "zhipu"
+	WebSearchProviderTypeVolcengine WebSearchProviderType = "volcengine"
 )
 
 // WebSearchProviderEntity represents a configured web search provider instance for a workspace.
@@ -274,6 +275,18 @@ func GetWebSearchProviderTypes() []WebSearchProviderTypeInfo {
 					},
 				},
 			},
+		},
+		{
+			// Deliberately no ConfigFields: every request option this provider
+			// supports is fixed in code. Exposing them as editable settings would
+			// let a stored value diverge from the version-controlled search policy
+			// that also drives this vendor.
+			ID:             "volcengine",
+			Name:           "Volcengine (Doubao)",
+			RequiresAPIKey: true,
+			SupportsProxy:  true,
+			Description:    "Volcengine Doubao Custom web search API (requires API key)",
+			DocsURL:        "https://www.volcengine.com/docs/85508/1512748",
 		},
 	}
 }

@@ -30,3 +30,20 @@ func TestIsValidProviderTypeIncludesZhipu(t *testing.T) {
 		t.Fatal("Zhipu provider type is not accepted")
 	}
 }
+
+func TestValidateProviderParametersVolcengine(t *testing.T) {
+	if !isValidProviderType(types.WebSearchProviderTypeVolcengine) {
+		t.Fatal("Volcengine provider type is not accepted")
+	}
+
+	valid := types.WebSearchProviderParameters{APIKey: "key"}
+	if err := validateProviderParameters(types.WebSearchProviderTypeVolcengine, valid); err != nil {
+		t.Fatalf("valid Volcengine parameters rejected: %v", err)
+	}
+
+	if err := validateProviderParameters(
+		types.WebSearchProviderTypeVolcengine, types.WebSearchProviderParameters{},
+	); err == nil {
+		t.Fatal("Volcengine parameters without an API key were accepted")
+	}
+}

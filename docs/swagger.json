@@ -19712,7 +19712,8 @@
                 "baidu",
                 "searxng",
                 "keenable",
-                "zhipu"
+                "zhipu",
+                "volcengine"
             ],
             "x-enum-varnames": [
                 "WebSearchProviderTypeBing",
@@ -19723,7 +19724,8 @@
                 "WebSearchProviderTypeBaidu",
                 "WebSearchProviderTypeSearxng",
                 "WebSearchProviderTypeKeenable",
-                "WebSearchProviderTypeZhipu"
+                "WebSearchProviderTypeZhipu",
+                "WebSearchProviderTypeVolcengine"
             ]
         },
         "github_com_Tencent_WeKnora_internal_types.WikiConfig": {

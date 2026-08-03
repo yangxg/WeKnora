@@ -3912,6 +3912,7 @@ definitions:
     - searxng
     - keenable
     - zhipu
+    - volcengine
     type: string
     x-enum-varnames:
     - WebSearchProviderTypeBing
@@ -3923,6 +3924,7 @@ definitions:
     - WebSearchProviderTypeSearxng
     - WebSearchProviderTypeKeenable
     - WebSearchProviderTypeZhipu
+    - WebSearchProviderTypeVolcengine
   github_com_Tencent_WeKnora_internal_types.WikiConfig:
     properties:
       content_instructions:

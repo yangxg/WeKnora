@@ -137,7 +137,8 @@ func isValidProviderType(provider types.WebSearchProviderType) bool {
 		types.WebSearchProviderTypeBaidu,
 		types.WebSearchProviderTypeSearxng,
 		types.WebSearchProviderTypeKeenable,
-		types.WebSearchProviderTypeZhipu:
+		types.WebSearchProviderTypeZhipu,
+		types.WebSearchProviderTypeVolcengine:
 		return true
 	default:
 		return false
@@ -172,6 +173,10 @@ func validateProviderParameters(provider types.WebSearchProviderType, params typ
 		}
 	case types.WebSearchProviderTypeZhipu:
 		if err := infra_web_search.ValidateZhipuParameters(params); err != nil {
+			return err
+		}
+	case types.WebSearchProviderTypeVolcengine:
+		if err := infra_web_search.ValidateVolcengineParameters(params); err != nil {
 			return err
 		}
 	case types.WebSearchProviderTypeDuckDuckGo:

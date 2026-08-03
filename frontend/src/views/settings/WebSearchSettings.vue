@@ -919,6 +919,11 @@ onMounted(async () => {
   background: rgba(37, 99, 235, 0.12);
   color: #2563EB;
 }
+.provider-card--volcengine .provider-card__badge {
+  // 火山引擎主色 #1664FF。
+  background: rgba(22, 100, 255, 0.12);
+  color: #1664FF;
+}
 
 .provider-card__body {
   flex: 1;
@@ -1200,5 +1205,9 @@ onMounted(async () => {
 .websearch-drawer--zhipu .setting-drawer__header-icon {
   background: rgba(37, 99, 235, 0.12);
   color: #2563EB;
+}
+.websearch-drawer--volcengine .setting-drawer__header-icon {
+  background: rgba(22, 100, 255, 0.12);
+  color: #1664FF;
 }
 </style>

@@ -5,7 +5,17 @@ export interface WebSearchProviderEntity {
   id?: string
   tenant_id?: number
   name: string
-  provider: 'bing' | 'google' | 'duckduckgo' | 'tavily' | 'ollama' | 'baidu' | 'searxng' | 'keenable' | 'zhipu'
+  provider:
+    | 'bing'
+    | 'google'
+    | 'duckduckgo'
+    | 'tavily'
+    | 'ollama'
+    | 'baidu'
+    | 'searxng'
+    | 'keenable'
+    | 'zhipu'
+    | 'volcengine'
   description?: string
   parameters: {
     // api_key is never returned by the server in this shape; it lives behind
