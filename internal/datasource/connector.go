@@ -253,6 +253,16 @@ var ConnectorMetadataRegistry = map[string]ConnectorMetadata{
 		AuthType:     "custom",
 		Capabilities: []string{"incremental"},
 	},
+	types.ConnectorTypeDiscovery: {
+		Type:        types.ConnectorTypeDiscovery,
+		Name:        "Web Search Discovery",
+		Description: "Run saved web search queries and ingest the original pages behind the hits",
+		Priority:    13,
+		AuthType:    "api_key",
+		// No "deletion_sync": a hit dropping out of the vendor's ranking says
+		// nothing about the page behind it still existing.
+		Capabilities: []string{"incremental"},
+	},
 }
 
 // ListAvailableConnectors returns all available connector metadata

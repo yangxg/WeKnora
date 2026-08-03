@@ -29,6 +29,11 @@ const (
 	ConnectorTypeSlack       = "slack"
 	ConnectorTypeIMAP        = "imap"
 	ConnectorTypeRSS         = "rss"
+	// ConnectorTypeDiscovery runs saved queries against a web search vendor and
+	// ingests the original pages behind the hits. The string is part of a
+	// contract: ResearchFlow materializes a version-controlled discovery
+	// manifest onto a data source row with exactly this Type.
+	ConnectorTypeDiscovery = "discovery"
 
 	// Sync modes
 	SyncModeIncremental = "incremental"
