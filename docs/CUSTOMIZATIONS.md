@@ -4,12 +4,12 @@ This ledger records every ResearchFlow-specific divergence from Tencent/WeKnora 
 
 ## Upstream baseline
 
-- Synchronized on: 2026-08-02
+- Synchronized on: 2026-08-03 (W2a2 opening sync)
 - Upstream remote: `https://github.com/Tencent/WeKnora.git`
-- Baseline commit: `5780affdfc76342ddd0f5cf95b548a1a4d0b2a5a`
-- Baseline describe: `v0.7.1-115-g5780affd`
+- Baseline commit: `82ea91f1`
+- Baseline describe: `v0.7.1-128-g82ea91f1`
 
-`main` was fast-forwarded to `ccb0cee3` (`v0.7.1-126-gccb0cee3`) on 2026-08-03. `researchflow-ext` deliberately still sits on the `5780affd` baseline: the 11 new upstream commits were checked against the W2a1 blast radius (`web_search`, `types`, `container`, generated docs, the web-search frontend) and touch none of it, so the merge is deferred to the start of W2a2 where the branch-discipline rule places it. Everything recorded for W1, W2a0 and W2a1 was measured on `5780affd`.
+Sync history: W0 established `5780affd` (`v0.7.1-115`), on which everything recorded for W1, W2a0 and W2a1 was measured. `main` was fast-forwarded to `ccb0cee3` (`v0.7.1-126`) mid-W2a1 without merging into `researchflow-ext`, after checking that the 11 new commits touched none of the W2a1 blast radius. At the W2a2 opening sync `main` advanced again to `82ea91f1` and was merged into `researchflow-ext` (merge `bd097eb6`, no conflicts, 13 upstream commits across 28 files); W2a1's build and tests were re-verified on the merged tree.
 
 ## Branch discipline
 
