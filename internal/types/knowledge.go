@@ -34,6 +34,11 @@ const (
 	ChannelYuque            = "yuque"             // Yuque (语雀)
 	ChannelRSS              = "rss"               // RSS / Atom feed
 	ChannelDiscovery        = "discovery"         // Web search discovery
+	// ChannelAcademic marks a candidate from an academic registry. It is kept
+	// apart from ChannelDiscovery because the two lanes differ in what their
+	// candidates are: a discovery candidate carries the original page, an
+	// academic one carries identity only and its text is never ingested here.
+	ChannelAcademic = "academic"
 )
 
 // Knowledge parse status constants

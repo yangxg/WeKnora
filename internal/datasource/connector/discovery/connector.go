@@ -8,10 +8,15 @@ import (
 	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Tencent/WeKnora/internal/datasource/connector/querycursor"
 	"github.com/Tencent/WeKnora/internal/infrastructure/web_search/volcengine"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 )
+
+// lane names this connector in the shared cursor's log lines. The academic
+// connector passes its own.
+const lane = "Discovery"
 
 // Compile-time proof that *Connector satisfies the datasource.Connector interface.
 var _ datasource.Connector = (*Connector)(nil)
@@ -139,12 +144,12 @@ func (c *Connector) FetchIncremental(
 		return nil, nil, err
 	}
 
-	prev := decodeCursor(ctx, cursor, cfg.ManifestHash)
+	prev := querycursor.Decode(ctx, cursor, cfg.ManifestHash, lane)
 	items, next, err := c.walk(ctx, cfg, config.ResourceIDs, prev, true)
 	if next == nil {
 		return items, nil, err
 	}
-	return items, next.toSyncCursor(ctx, cfg.ManifestHash), err
+	return items, next.ToSyncCursor(ctx, cfg.ManifestHash, lane), err
 }
 
 // walk is the shared implementation of both fetch paths.
@@ -163,9 +168,9 @@ func (c *Connector) walk(
 	ctx context.Context,
 	cfg *Config,
 	resourceIDs []string,
-	prev *discoveryCursor,
+	prev *querycursor.Cursor,
 	incremental bool,
-) ([]types.FetchedItem, *discoveryCursor, error) {
+) ([]types.FetchedItem, *querycursor.Cursor, error) {
 	selected, err := selectQueries(cfg, resourceIDs)
 	if err != nil {
 		return nil, nil, err
@@ -177,7 +182,7 @@ func (c *Connector) walk(
 	pages := c.newPages()
 	options := cfg.SearchOptions()
 
-	newCursor := newDiscoveryCursor()
+	newCursor := querycursor.New()
 	var out []types.FetchedItem
 	var failures []string
 	searched := 0
@@ -191,15 +196,15 @@ func (c *Connector) walk(
 			logger.Warnf(ctx, "[Discovery] search failed for query %s of source %s: %v",
 				query.QueryID, cfg.SourceID, err)
 			failures = append(failures, fmt.Sprintf("query %s: %v", query.QueryID, err))
-			carryQueryProgress(newCursor, prev, query.QueryID)
+			newCursor.CarryQueryProgress(prev, query.QueryID)
 			continue
 		}
 		searched++
 
-		newCursor.Queries[query.QueryID] = make(map[string]string)
+		newCursor.StartQuery(query.QueryID)
 		var priorItems map[string]string
 		if incremental {
-			priorItems = priorQueryProgress(prev, query.QueryID)
+			priorItems = querycursor.PriorProgress(prev, query.QueryID)
 		}
 
 		var emitted, skipped, dropped int
@@ -226,8 +231,8 @@ func (c *Connector) walk(
 				continue
 			}
 
-			fingerprint := contentFingerprint(fetched.Markdown)
-			newCursor.Queries[query.QueryID][externalID] = fingerprint
+			fingerprint := querycursor.Fingerprint(fetched.Markdown)
+			newCursor.Record(query.QueryID, externalID, fingerprint)
 			if incremental && priorItems[externalID] == fingerprint {
 				skipped++
 				continue

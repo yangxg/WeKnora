@@ -229,17 +229,64 @@ func TestSearchStripsTheVersionSuffixFromTheArXivID(t *testing.T) {
 	if got := resp.Works[0].ArXivID; got != "2401.00001" {
 		t.Errorf("ArXivID = %q, want the unversioned 2401.00001", got)
 	}
-	identity, ok := resp.Works[0].Identity()
-	if !ok || identity != "arxiv:2401.00001" {
-		t.Errorf("Identity() = %q, %v", identity, ok)
+}
+
+// arXiv registers a DOI for every e-print and publishes the way to construct it:
+// its DataCite prefix plus the arXiv id with the colon replaced by a period. The
+// 1991–2021 backfill completed in February 2022, so coverage is total, and there
+// is one DOI per e-print rather than per version — which is why stripping the
+// version suffix above is the right input to this derivation rather than a lossy
+// step before it (ADR-0013 §4).
+//
+// Deriving it is applying a rule the registrant publishes, not inferring an
+// identifier: what it buys is that the same preprint reached through OpenAlex,
+// which returns that DOI directly, lands on the identical canonical key.
+func TestSearchDerivesArXivsOwnDOI(t *testing.T) {
+	cases := []struct {
+		name    string
+		id      string
+		wantDOI string
+	}{
+		{"modern id", "http://arxiv.org/abs/2401.00001v3", "10.48550/arxiv.2401.00001"},
+		{"unversioned", "http://arxiv.org/abs/2401.00001", "10.48550/arxiv.2401.00001"},
+		{"legacy id with a subject class", "http://arxiv.org/abs/math/0309136v1", "10.48550/arxiv.math/0309136"},
+		{"https form", "https://arxiv.org/abs/2401.00001v1", "10.48550/arxiv.2401.00001"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := strings.Replace(fullEntry, "http://arxiv.org/abs/2401.00001v3", tc.id, 1)
+			srv, _ := serveXML(t, http.StatusOK, feedWith(entry))
+			c := testClient(t, srv.URL, srv.Client())
+
+			resp, err := c.Search(context.Background(), "x", academic_search.Options{})
+			if err != nil {
+				t.Fatalf("Search() error = %v", err)
+			}
+			if len(resp.Works) != 1 {
+				t.Fatalf("got %d works, want 1", len(resp.Works))
+			}
+			if got := resp.Works[0].DOI; got != tc.wantDOI {
+				t.Errorf("DOI = %q, want %q", got, tc.wantDOI)
+			}
+			identity, ok := resp.Works[0].Identity()
+			if !ok || identity != "doi:"+tc.wantDOI {
+				t.Errorf("Identity() = %q, %v; want doi:%s", identity, ok, tc.wantDOI)
+			}
+			// The e-print id survives alongside it: it is what a person recognizes
+			// in a reading list, and the fallback if a DOI ever fails to resolve.
+			if resp.Works[0].ArXivID == "" {
+				t.Error("ArXivID was dropped once the DOI was derived")
+			}
+		})
 	}
 }
 
-// arxiv:doi points at the *published* version, which ADR-0012 §3 holds to be a
-// different Document. Adopting it would hand this candidate another work's
-// identity, so a researcher promoting the preprint PDF would land on the
-// version-of-record's canonical key — exactly the merge decision 2b forbids.
-func TestSearchDoesNotAdoptTheJournalDOIAsTheCandidateIdentity(t *testing.T) {
+// <arxiv:doi> points at the *published* version, which ADR-0012 §3 decision 2b
+// holds to be a different Document. Adopting it would hand this candidate another
+// work's identity, so a researcher promoting the preprint PDF would land on the
+// version-of-record's canonical key. Deriving arXiv's own DOI does not change
+// that: the derived one names this e-print, the journal one names something else.
+func TestSearchDoesNotAdoptTheJournalDOI(t *testing.T) {
 	srv, _ := serveXML(t, http.StatusOK, feedWith(fullEntry))
 	c := testClient(t, srv.URL, srv.Client())
 
@@ -247,8 +294,36 @@ func TestSearchDoesNotAdoptTheJournalDOIAsTheCandidateIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
+	// fullEntry carries <arxiv:doi>10.1016/j.jclinepi.2024.99999</arxiv:doi>.
+	if got := resp.Works[0].DOI; got != "10.48550/arxiv.2401.00001" {
+		t.Errorf("DOI = %q, want arXiv's own; the journal DOI names the published version", got)
+	}
+	if strings.Contains(resp.Works[0].DOI, "jclinepi") {
+		t.Error("the journal DOI was adopted as this e-print's identity")
+	}
+}
+
+// A derived DOI is only as good as the id it came from. An id that cannot form a
+// valid DOI leaves the work with no DOI rather than a mangled one — a corrupt
+// deduplication key is worse than an absent one, and the e-print id still stands.
+func TestSearchLeavesTheDOIEmptyWhenTheIDCannotFormOne(t *testing.T) {
+	entry := strings.Replace(fullEntry,
+		"http://arxiv.org/abs/2401.00001v3", "http://arxiv.org/abs/2401 00001", 1)
+	srv, _ := serveXML(t, http.StatusOK, feedWith(entry))
+	c := testClient(t, srv.URL, srv.Client())
+
+	resp, err := c.Search(context.Background(), "x", academic_search.Options{})
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if len(resp.Works) != 1 {
+		t.Fatalf("got %d works, want 1", len(resp.Works))
+	}
 	if got := resp.Works[0].DOI; got != "" {
-		t.Errorf("DOI = %q; the journal DOI names the published version, not this e-print", got)
+		t.Errorf("DOI = %q, want empty", got)
+	}
+	if identity, _ := resp.Works[0].Identity(); identity != "arxiv:2401 00001" {
+		t.Errorf("Identity() = %q, want the e-print id to still stand", identity)
 	}
 }
 

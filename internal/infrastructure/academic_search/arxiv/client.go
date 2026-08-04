@@ -7,7 +7,7 @@
 // it is the only compliant shape — this client asks for identity, and the entry
 // struct it decodes into has no field an abstract could land in.
 //
-// Two arXiv-specific rules matter more than the request format:
+// Three arXiv-specific rules matter more than the request format:
 //
 //   - One request every three seconds, counted across every machine under our
 //     control. That is a term of use, not a performance hint, and the penalty is
@@ -18,6 +18,11 @@
 //     and the version of record to be two Documents. Adopting it would give a
 //     preprint candidate the published version's canonical key, so a researcher
 //     promoting the e-print PDF would silently file it as the journal article.
+//   - arXiv's *own* DOI is derived rather than looked up, because the Atom API
+//     does not return it. That is not the same move as the previous bullet: the
+//     derived DOI names this e-print, and arXiv publishes the derivation itself
+//     (see dataCiteDOI). It is what makes an arXiv candidate and the same
+//     preprint reached through OpenAlex land on one canonical key.
 package arxiv
 
 import (
@@ -63,6 +68,13 @@ const (
 	// absPrefixes are stripped to recover the bare e-print id.
 	absPrefixHTTP  = "http://arxiv.org/abs/"
 	absPrefixHTTPS = "https://arxiv.org/abs/"
+
+	// dataCitePrefix is arXiv's registered DataCite prefix, and the literal below
+	// is the whole derivation rule: the prefix, then the arXiv id with its colon
+	// replaced by a period. arXiv publishes it in that form — an author is told to
+	// find their DOI by appending their id to https://doi.org/10.48550/ — so this
+	// applies a documented construction rather than guessing an identifier.
+	dataCitePrefix = "10.48550/arXiv."
 
 	// openWindowStart and openWindowEnd stand in for an unbounded side of the
 	// date filter. arXiv has no open-ended range syntax, so a half-open window
@@ -256,8 +268,10 @@ func project(feed atomFeed) *academic_search.Response {
 		Total: feed.Total,
 	}
 	for _, entry := range feed.Entries {
+		eprint := eprintID(entry.ID)
 		work := academic_search.Work{
-			ArXivID: eprintID(entry.ID),
+			ArXivID: eprint,
+			DOI:     dataCiteDOI(eprint),
 			Title:   collapseSpace(entry.Title),
 			Year:    publishedYear(entry.Published),
 			Venue:   collapseSpace(entry.JournalRef),
@@ -270,8 +284,10 @@ func project(feed atomFeed) *academic_search.Response {
 				work.Authors = append(work.Authors, name)
 			}
 		}
-		// Note what is *not* set: work.DOI. entry.JournalDOI names the published
-		// version, which is a different Document (ADR-0012 §3 decision 2b).
+		// Note what is *not* read: the entry's <arxiv:doi>. It names the published
+		// version, which is a different Document (ADR-0012 §3 decision 2b), and
+		// atomEntry declares no field for it so a later edit cannot pick it up
+		// either.
 		if _, ok := work.Identity(); !ok {
 			response.Dropped++
 			continue
@@ -291,6 +307,26 @@ func eprintID(raw string) string {
 		}
 	}
 	return versionSuffix.ReplaceAllString(id, "")
+}
+
+// dataCiteDOI returns arXiv's own DOI for an e-print id, or "" when the id
+// cannot form a valid one.
+//
+// The id passed in is already unversioned, which matters: arXiv mints one DOI per
+// e-print rather than per version, and it resolves to the canonical version-less
+// abstract page. So stripping the version is the correct input here, not a lossy
+// step that happens to precede it.
+//
+// The result goes through the shared NormalizeDOI rather than being formatted and
+// trusted. That lowercases it — DOIs are case-insensitive, and both this client
+// and ResearchFlow's canonical key are lowercase — and, more importantly, it
+// validates: an id that cannot form a well-formed DOI yields "" instead of a
+// mangled deduplication key, and the e-print id still stands as the identity.
+func dataCiteDOI(eprintID string) string {
+	if eprintID == "" {
+		return ""
+	}
+	return academic_search.NormalizeDOI(dataCitePrefix + eprintID)
 }
 
 // publishedYear reads the year off the submission timestamp. A record whose date

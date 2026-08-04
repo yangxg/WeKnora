@@ -34,6 +34,16 @@ const (
 	// contract: ResearchFlow materializes a version-controlled discovery
 	// manifest onto a data source row with exactly this Type.
 	ConnectorTypeDiscovery = "discovery"
+	// ConnectorTypeAcademic runs saved queries against an academic registry and
+	// produces identity-only candidates — a reading list, not the works' text.
+	//
+	// It is a separate type rather than a mode of ConnectorTypeDiscovery because
+	// the two lanes give opposite answers to the only question that matters
+	// downstream: whether a candidate carries a body. Behind one runtime value,
+	// "did anything ingest text it was not permitted to" would stop being a
+	// compile-time property (ResearchFlow ADR-0012 §6). Like the string above,
+	// this one is the Type ResearchFlow materializes onto the row.
+	ConnectorTypeAcademic = "academic"
 
 	// Sync modes
 	SyncModeIncremental = "incremental"
