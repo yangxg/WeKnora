@@ -54,6 +54,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/database"
 	"github.com/Tencent/WeKnora/internal/datasource"
+	academicConnector "github.com/Tencent/WeKnora/internal/datasource/connector/academic"
 	discoveryConnector "github.com/Tencent/WeKnora/internal/datasource/connector/discovery"
 	feishuConnector "github.com/Tencent/WeKnora/internal/datasource/connector/feishu"
 	notionConnector "github.com/Tencent/WeKnora/internal/datasource/connector/notion"
@@ -1598,6 +1599,9 @@ func initConnectorRegistry() (*datasource.ConnectorRegistry, error) {
 	}
 	if err := registry.Register(discoveryConnector.NewConnector()); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("register discovery connector: %w", err))
+	}
+	if err := registry.Register(academicConnector.NewConnector()); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("register academic connector: %w", err))
 	}
 
 	// Future connectors will be registered here:

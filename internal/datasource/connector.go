@@ -263,6 +263,19 @@ var ConnectorMetadataRegistry = map[string]ConnectorMetadata{
 		// nothing about the page behind it still existing.
 		Capabilities: []string{"incremental"},
 	},
+	types.ConnectorTypeAcademic: {
+		Type:        types.ConnectorTypeAcademic,
+		Name:        "Academic Discovery",
+		Description: "Run saved queries against academic registries and build an identity-only reading list",
+		Priority:    14,
+		// The provider profile decides the shape: arXiv is anonymous, OpenAlex
+		// and PubMed use a key, and Crossref uses contact identity with an
+		// optional Plus token.
+		AuthType: "mixed",
+		// No "deletion_sync": ranking movement is not a retraction signal, and
+		// removing a card would erase review state based on it alone.
+		Capabilities: []string{"incremental"},
+	},
 }
 
 // ListAvailableConnectors returns all available connector metadata

@@ -22,6 +22,23 @@ func TestDiscoveryMetadataDoesNotAdvertiseDeletionSync(t *testing.T) {
 	}
 }
 
+// TestAcademicMetadataAdvertisesOnlyIncremental pins the connector's lifecycle
+// claim. A work dropping out of a registry's result set is not a retraction or a
+// deletion, and removing its bibliographic card would erase review state based
+// on ranking movement alone (ResearchFlow ADR-0013 §6).
+func TestAcademicMetadataAdvertisesOnlyIncremental(t *testing.T) {
+	meta := ConnectorMetadataRegistry[types.ConnectorTypeAcademic]
+	if meta.Type != types.ConnectorTypeAcademic {
+		t.Fatal("academic connector metadata is missing")
+	}
+	if len(meta.Capabilities) != 1 || meta.Capabilities[0] != "incremental" {
+		t.Fatalf("academic capabilities = %v, want incremental only", meta.Capabilities)
+	}
+	if meta.AuthType != "mixed" {
+		t.Fatalf("academic auth type = %q, want mixed for anonymous/key/contact provider profiles", meta.AuthType)
+	}
+}
+
 func TestFeishuMetadataDoesNotAdvertiseWebhook(t *testing.T) {
 	meta := ConnectorMetadataRegistry[types.ConnectorTypeFeishu]
 
