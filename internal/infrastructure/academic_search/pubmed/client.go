@@ -26,7 +26,7 @@
 //   - Large jobs belong on weekends or 21:00–05:00 Eastern. That is a scheduling
 //     obligation on whatever drives this client, not a rate this client can hold.
 //
-// One vocabulary gap is deliberately left fail-closed; see publicationTypes.
+// Two vocabulary gaps are deliberately left fail-closed; see publicationTypes.
 package pubmed
 
 import (
@@ -74,21 +74,31 @@ const (
 
 // publicationTypes maps the kernel vocabulary onto PubMed [pt] tags.
 //
-// It holds three entries, and the omissions are deliberate. PubMed's publication
-// types come from a MeSH-controlled vocabulary whose authoritative list was not
-// reachable during implementation, and ADR-0012 §9 is explicit that an unverified
-// value must not be coded from prose. The three here are the ones PubMed itself
-// returns in the `pubtype` field of its own summaries, which is the same
-// vocabulary [pt] searches; the rest are refused.
+// It holds four entries, and the two omissions are deliberate. [pt] searches a
+// MeSH-controlled vocabulary — NLM's "Publication Characteristics (Publication
+// Types) with Scope Notes" — which was unreachable during implementation, so
+// ADR-0012 §9 left the map at three and made widening a verification task: cite
+// the term, then add it. The list was read on 2026-08-05 (reviewed 2026-07-01)
+// and settles all three remaining kernel types:
 //
-// Refusing costs a Crossref-shaped manifest one filter it could have had.
+//   - Dataset is in the list ("Works consisting of organized collections of
+//     data..."), so it is cited and added;
+//   - book-chapter has no counterpart at all (there is Monograph and Book
+//     Review, but no "Book Chapter");
+//   - conference-paper's nearest terms name the wrong object: Conference
+//     Proceedings is the published volume, Meeting Abstract is a single
+//     abstract. Neither is a conference paper. (The old Congress term is gone.)
+//
+// So the last two are refused on a citation now, not on an unreachable page.
 // Guessing would cost a project a filter that matches nothing and reads as "no
-// datasets on this topic" — a wrong answer that looks like a right one. Widening
-// this map is a verification task: cite the term, then add it.
+// conference papers on this topic" — a wrong answer that looks like a right one.
+// What the list cannot settle is how many records carry a given type; only an
+// authorized request could, and a small true count is still true.
 var publicationTypes = map[string]string{
 	academic_search.WorkTypeJournalArticle: "Journal Article",
 	academic_search.WorkTypeReview:         "Review",
 	academic_search.WorkTypePreprint:       "Preprint",
+	academic_search.WorkTypeDataset:        "Dataset",
 }
 
 // toolPattern enforces NCBI's rule that tool be "a string with no internal

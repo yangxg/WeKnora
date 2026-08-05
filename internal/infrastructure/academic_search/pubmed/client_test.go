@@ -280,9 +280,29 @@ func TestSearchAppendsPublicationTypeTags(t *testing.T) {
 	}
 }
 
-// Fail closed on the vocabulary we could not verify. A [pt] value PubMed does not
-// use matches nothing, and "no datasets on this topic" is a wrong answer wearing
-// the clothes of a right one.
+// Dataset is in NLM's Publication Characteristics list (reviewed 2026-07-01) with
+// the scope note "Works consisting of organized collections of data...". That
+// citation is the bar ADR-0012 §9 sets for widening the map, so the filter is now
+// expressible. How many PubMed records carry it is a separate question that only
+// an authorized request could answer — and a small true count is still true.
+func TestSearchExpressesTheVerifiedDatasetType(t *testing.T) {
+	srv, seen := serveEUtils(t, esearchBody, esummaryBody, http.StatusOK)
+	c := testClient(t, srv.URL, srv.Client())
+
+	if _, err := c.Search(context.Background(), "cohort", academic_search.Options{
+		WorkTypes: []string{academic_search.WorkTypeDataset},
+	}); err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if term := seen.esearch.Get("term"); !strings.Contains(term, `"Dataset"[pt]`) {
+		t.Errorf(`term = %q, want it to carry "Dataset"[pt]`, term)
+	}
+}
+
+// Dataset was verified into the map (see TestSearchExpressesTheVerifiedDatasetType);
+// these two stay refused because the MeSH vocabulary has no term for them. A [pt]
+// value PubMed does not use matches nothing, and "no conference papers on this
+// topic" is a wrong answer wearing the clothes of a right one.
 func TestSearchRefusesFiltersPubMedCannotExpress(t *testing.T) {
 	srv, seen := serveEUtils(t, esearchBody, esummaryBody, http.StatusOK)
 	c := testClient(t, srv.URL, srv.Client())
@@ -290,7 +310,6 @@ func TestSearchRefusesFiltersPubMedCannotExpress(t *testing.T) {
 	for _, workType := range []string{
 		academic_search.WorkTypeBookChapter,
 		academic_search.WorkTypeConferencePaper,
-		academic_search.WorkTypeDataset,
 	} {
 		if _, err := c.Search(context.Background(), "x",
 			academic_search.Options{WorkTypes: []string{workType}}); err == nil {
