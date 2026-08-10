@@ -107,6 +107,7 @@ type AgentConfig struct {
 	WebSearchEnabled            bool                      `json:"web_search_enabled"`
 	WebSearchMaxResults         int                       `json:"web_search_max_results"`
 	WebSearchProviderID         string                    `json:"web_search_provider_id,omitempty"`
+	WebSearchProviderIDs        []string                  `json:"web_search_provider_ids,omitempty"`
 	WebFetchEnabled             bool                      `json:"web_fetch_enabled"`
 	WebFetchTopN                int                       `json:"web_fetch_top_n,omitempty"`
 	MultiTurnEnabled            bool                      `json:"multi_turn_enabled"`

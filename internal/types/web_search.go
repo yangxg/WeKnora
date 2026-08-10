@@ -13,6 +13,12 @@ type WebSearchConfig struct {
 	// Deprecated: Use WebSearchProviderEntity.Parameters.APIKey instead.
 	APIKey string `json:"api_key,omitempty"`
 
+	// ProviderIDs is a ResearchFlow extension: when length >= 2, WebSearchService
+	// fans out to each id in parallel and fuses ranks with RRF. Single-element
+	// lists are equivalent to the classic providerID argument. Never populated
+	// from untrusted client input without tenant-scoped id validation upstream.
+	ProviderIDs []string `json:"provider_ids,omitempty"`
+
 	MaxResults        int      `json:"max_results"`        // 最大搜索结果数
 	IncludeDate       bool     `json:"include_date"`       // 是否包含日期
 	CompressionMethod string   `json:"compression_method"` // 压缩方法：none, summary, extract, rag

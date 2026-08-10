@@ -67,12 +67,13 @@ type PipelineRequest struct {
 
 	// Misc request-scoped config
 	TenantID            uint64 `json:"-"`
-	WebSearchEnabled    bool   `json:"-"`
-	WebSearchProviderID string `json:"-"` // Resolved from agent config or tenant default
-	WebSearchMaxResults int    `json:"-"` // Resolved from agent config or tenant default
-	WebFetchEnabled     bool   `json:"-"` // Auto-fetch full page content for web search results after rerank
-	WebFetchTopN        int    `json:"-"` // Max pages to fetch (default 3)
-	Language            string `json:"-"`
+	WebSearchEnabled     bool     `json:"-"`
+	WebSearchProviderID  string   `json:"-"` // Resolved from agent config or tenant default
+	WebSearchProviderIDs []string `json:"-"` // Multi-source fan-out (RRF); ResearchFlow extension
+	WebSearchMaxResults  int      `json:"-"` // Resolved from agent config or tenant default
+	WebFetchEnabled      bool     `json:"-"` // Auto-fetch full page content for web search results after rerank
+	WebFetchTopN         int      `json:"-"` // Max pages to fetch (default 3)
+	Language             string   `json:"-"`
 }
 
 // CitationsEnabled returns the effective citation setting for this request.
@@ -236,6 +237,7 @@ func (c *ChatManage) Clone() *ChatManage {
 			TenantID:                 c.TenantID,
 			WebSearchEnabled:         c.WebSearchEnabled,
 			WebSearchProviderID:      c.WebSearchProviderID,
+			WebSearchProviderIDs:     append([]string(nil), c.WebSearchProviderIDs...),
 			WebSearchMaxResults:      c.WebSearchMaxResults,
 			WebFetchEnabled:          c.WebFetchEnabled,
 			WebFetchTopN:             c.WebFetchTopN,

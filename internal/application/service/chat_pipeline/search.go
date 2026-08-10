@@ -586,8 +586,9 @@ func (p *PluginSearch) searchWebIfEnabled(ctx context.Context, chatManage *types
 	}
 	tenant, _ := types.TenantInfoFromContext(ctx)
 	providerID := chatManage.WebSearchProviderID
+	multi := append([]string(nil), chatManage.WebSearchProviderIDs...)
 
-	if providerID == "" {
+	if providerID == "" && len(multi) < 2 {
 		pipelineWarn(ctx, "Search", "web_config_missing", map[string]interface{}{
 			"tenant_id": chatManage.TenantID,
 		})
@@ -603,10 +604,14 @@ func (p *PluginSearch) searchWebIfEnabled(ctx context.Context, chatManage *types
 	if chatManage.WebSearchMaxResults > 0 {
 		webConfig.MaxResults = chatManage.WebSearchMaxResults
 	}
+	if len(multi) > 1 {
+		webConfig.ProviderIDs = multi
+	}
 
 	pipelineInfo(ctx, "Search", "web_request", map[string]interface{}{
 		"tenant_id":   chatManage.TenantID,
 		"provider_id": providerID,
+		"multi":       len(multi),
 	})
 	webCtx, webSpan := langfuse.GetManager().StartSpan(ctx, langfuse.SpanOptions{
 		Name: "web_search",

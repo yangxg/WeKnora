@@ -45,6 +45,12 @@ func NewWebSearchService(
 
 // Search performs web search using the provider entity identified by providerID.
 // If providerID is empty, it falls back to the deprecated config.Provider field for backward compatibility.
+//
+// ResearchFlow multi-source: when config.ProviderIDs has two or more IDs, Search
+// fans out in parallel, fuses ranks with RRF (see fuseWebSearchResults), and
+// ignores providerID for resolution (providerID is still accepted so existing
+// single-provider callers stay source-compatible). A single-element ProviderIDs
+// list behaves like the classic single-provider path.
 func (s *WebSearchService) Search(
 	ctx context.Context,
 	providerID string,
@@ -53,6 +59,14 @@ func (s *WebSearchService) Search(
 ) ([]*types.WebSearchResult, error) {
 	if config == nil {
 		return nil, fmt.Errorf("web search config is required")
+	}
+
+	ids := dedupeProviderIDs(config.ProviderIDs)
+	if len(ids) > 1 {
+		return s.searchMulti(ctx, ids, config, query)
+	}
+	if len(ids) == 1 {
+		providerID = ids[0]
 	}
 
 	// Resolve the provider
@@ -80,6 +94,91 @@ func (s *WebSearchService) Search(
 	results = s.filterBlacklist(results, config.Blacklist)
 
 	return results, nil
+}
+
+// searchMulti fans out to every provider id, fuses with RRF, then blacklists.
+// Partial failure is tolerated: a provider that errors contributes nothing and
+// is logged; if every provider fails, the first error is returned so callers
+// still see a hard failure rather than a silent empty success.
+func (s *WebSearchService) searchMulti(
+	ctx context.Context,
+	providerIDs []string,
+	config *types.WebSearchConfig,
+	query string,
+) ([]*types.WebSearchResult, error) {
+	timeout := time.Duration(s.timeout) * time.Second
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	type outcome struct {
+		hit rankedHit
+		err error
+	}
+	ch := make(chan outcome, len(providerIDs))
+	// Per-provider max: ask each source for the final budget so fusion has
+	// enough ranks; the fused list is truncated to config.MaxResults after.
+	perMax := config.MaxResults
+	if perMax <= 0 {
+		perMax = types.DefaultWebSearchMaxResults
+	}
+
+	for _, id := range providerIDs {
+		id := id
+		go func() {
+			provider, err := s.resolveProvider(ctx, id, config)
+			if err != nil {
+				ch <- outcome{err: err, hit: rankedHit{ProviderID: id}}
+				return
+			}
+			providerType := provider.Name()
+			if tenantID, ok := types.TenantIDFromContext(ctx); ok {
+				if entity, e := s.providerRepo.GetByID(ctx, tenantID, id); e == nil && entity != nil {
+					providerType = string(entity.Provider)
+				}
+			}
+			results, err := provider.Search(ctx, query, perMax, config.IncludeDate)
+			if err != nil {
+				ch <- outcome{err: err, hit: rankedHit{ProviderID: id, ProviderType: providerType}}
+				return
+			}
+			ch <- outcome{hit: rankedHit{
+				ProviderID:   id,
+				ProviderType: providerType,
+				Results:      results,
+			}}
+		}()
+	}
+
+	lists := make([]rankedHit, 0, len(providerIDs))
+	var firstErr error
+	successes := 0
+	for range providerIDs {
+		o := <-ch
+		if o.err != nil {
+			logger.Warnf(ctx, "[WebSearch][Multi] provider %s failed: %v", o.hit.ProviderID, o.err)
+			if firstErr == nil {
+				firstErr = o.err
+			}
+			continue
+		}
+		successes++
+		lists = append(lists, o.hit)
+	}
+	if successes == 0 {
+		if firstErr != nil {
+			return nil, fmt.Errorf("web search failed: %w", firstErr)
+		}
+		return nil, fmt.Errorf("web search failed: all providers failed")
+	}
+
+	logger.Infof(ctx, "[WebSearch][Multi] fused providers=%d ok=%d query_len=%d",
+		len(providerIDs), successes, len(query))
+
+	fused := fuseWebSearchResults(lists, config.MaxResults)
+	return s.filterBlacklist(fused, config.Blacklist), nil
 }
 
 // resolveProvider resolves a WebSearchProvider instance from either:

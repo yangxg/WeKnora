@@ -226,6 +226,11 @@ type CustomAgentConfig struct {
 	// WebSearchProviderID references a specific WebSearchProviderEntity.
 	// If empty, the workspace's default provider (is_default=true) is used.
 	WebSearchProviderID string `yaml:"web_search_provider_id" json:"web_search_provider_id,omitempty"`
+	// WebSearchProviderIDs is a ResearchFlow extension: when length >= 2 the
+	// runtime fans out to each provider and fuses ranks with RRF. When set,
+	// it takes precedence over WebSearchProviderID. Empty keeps the single-
+	// provider path (WebSearchProviderID or tenant default).
+	WebSearchProviderIDs []string `yaml:"web_search_provider_ids" json:"web_search_provider_ids,omitempty"`
 	// Whether to auto-fetch full page content for reranked web search results
 	WebFetchEnabled bool `yaml:"web_fetch_enabled" json:"web_fetch_enabled"`
 	// Max number of pages to fetch after rerank (default: 3)

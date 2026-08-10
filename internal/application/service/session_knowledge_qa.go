@@ -127,6 +127,7 @@ func (s *sessionService) KnowledgeQA(
 			RewritePromptUser:       s.cfg.Conversation.RewritePromptUser,
 			WebSearchEnabled:        req.WebSearchEnabled,
 			WebSearchProviderID:     s.resolveWebSearchProviderID(ctx, req, retrievalTenantID),
+			WebSearchProviderIDs:    s.resolveWebSearchProviderIDs(req),
 			WebSearchMaxResults:     s.resolveWebSearchMaxResults(ctx, req),
 			WebFetchEnabled:         s.resolveWebFetchEnabled(req),
 			WebFetchTopN:            s.resolveWebFetchTopN(req),
@@ -1227,6 +1228,38 @@ func (s *sessionService) emitFallbackAnswer(ctx context.Context, chatManage *typ
 	} else {
 		logger.Infof(ctx, "Fallback answer event emitted successfully")
 	}
+}
+
+// resolveWebSearchProviderIDs returns the multi-source provider list when the
+// agent config declares two or more ids (ResearchFlow RRF fan-out). Empty means
+// the classic single-provider path via WebSearchProviderID.
+func (s *sessionService) resolveWebSearchProviderIDs(req *types.QARequest) []string {
+	if req.CustomAgent == nil {
+		return nil
+	}
+	ids := req.CustomAgent.Config.WebSearchProviderIDs
+	if len(ids) < 2 {
+		return nil
+	}
+	out := make([]string, 0, len(ids))
+	seen := map[string]struct{}{}
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+		if len(out) >= MaxWebSearchAggregateProviders {
+			break
+		}
+	}
+	if len(out) < 2 {
+		return nil
+	}
+	return out
 }
 
 // resolveWebSearchProviderID returns the web search provider ID to use for a pipeline request.

@@ -83,7 +83,8 @@ type WebSearchTool struct {
 	webSearchStateService interfaces.WebSearchStateService
 	sessionID             string
 	maxResults            int
-	providerID            string // WebSearchProviderEntity ID (resolved from agent config or tenant default)
+	providerID            string   // WebSearchProviderEntity ID (resolved from agent config or tenant default)
+	providerIDs           []string // Multi-source fan-out (RRF); ResearchFlow extension
 }
 
 // NewWebSearchTool creates a new web search tool
@@ -95,9 +96,15 @@ func NewWebSearchTool(
 	sessionID string,
 	maxResults int,
 	providerID string,
+	providerIDs ...[]string,
 ) *WebSearchTool {
 	tool := webSearchTool
 	tool.description = fmt.Sprintf(tool.description, maxResults, maxResults)
+
+	var multi []string
+	if len(providerIDs) > 0 {
+		multi = append([]string(nil), providerIDs[0]...)
+	}
 
 	return &WebSearchTool{
 		BaseTool:              tool,
@@ -108,6 +115,7 @@ func NewWebSearchTool(
 		sessionID:             sessionID,
 		maxResults:            maxResults,
 		providerID:            providerID,
+		providerIDs:           multi,
 	}
 }
 
@@ -167,12 +175,16 @@ func (t *WebSearchTool) Execute(ctx context.Context, args json.RawMessage) (*typ
 		searchConfig = types.EffectiveWebSearchConfig(tenant.WebSearchConfig)
 	}
 	searchConfig.MaxResults = t.maxResults
+	if len(t.providerIDs) > 1 {
+		searchConfig.ProviderIDs = append([]string(nil), t.providerIDs...)
+	}
 
 	// Perform web search
 	logger.Infof(
 		ctx,
-		"[Tool][WebSearch] Performing web search with providerID: %s, maxResults: %d",
+		"[Tool][WebSearch] Performing web search with providerID: %s, multi=%d, maxResults: %d",
 		resolvedProviderID,
+		len(t.providerIDs),
 		searchConfig.MaxResults,
 	)
 	webResults, err := t.webSearchService.Search(ctx, resolvedProviderID, searchConfig, query)

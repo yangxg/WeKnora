@@ -624,8 +624,10 @@ func (s *agentService) registerTools(
 				sessionID,
 				config.WebSearchMaxResults,
 				config.WebSearchProviderID,
+				config.WebSearchProviderIDs,
 			)
-			logger.Infof(ctx, "Registered web_search tool for session: %s, maxResults: %d, providerID: %s", sessionID, config.WebSearchMaxResults, config.WebSearchProviderID)
+			logger.Infof(ctx, "Registered web_search tool for session: %s, maxResults: %d, providerID: %s, multi: %d",
+				sessionID, config.WebSearchMaxResults, config.WebSearchProviderID, len(config.WebSearchProviderIDs))
 
 		case tools.ToolWebFetch:
 			toolToRegister = tools.NewWebFetchTool(chatModel)

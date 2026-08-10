@@ -135,6 +135,15 @@ func (s *agentShareService) isAgentWebSearchReady(
 	}
 	var provider *types.WebSearchProviderEntity
 	var err error
+	if len(agent.Config.WebSearchProviderIDs) > 1 {
+		for _, id := range agent.Config.WebSearchProviderIDs {
+			p, e := s.webSearchProviderRepo.GetByID(ctx, sourceTenantID, id)
+			if e != nil || p == nil {
+				return false
+			}
+		}
+		return true
+	}
 	if agent.Config.WebSearchProviderID != "" {
 		provider, err = s.webSearchProviderRepo.GetByID(ctx, sourceTenantID, agent.Config.WebSearchProviderID)
 	} else {

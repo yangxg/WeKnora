@@ -223,6 +223,7 @@ func (s *sessionService) buildAgentConfig(
 		WebSearchEnabled:            customAgent.Config.WebSearchEnabled && req.WebSearchEnabled,
 		WebSearchMaxResults:         customAgent.Config.WebSearchMaxResults,
 		WebSearchProviderID:         customAgent.Config.WebSearchProviderID,
+		WebSearchProviderIDs:        append([]string(nil), customAgent.Config.WebSearchProviderIDs...),
 		MultiTurnEnabled:            customAgent.Config.MultiTurnEnabled,
 		HistoryTurns:                customAgent.Config.HistoryTurns,
 		MCPSelectionMode:            customAgent.Config.MCPSelectionMode,
@@ -283,7 +284,14 @@ func (s *sessionService) buildAgentConfig(
 	}
 
 	// Resolve web search provider ID: agent-level > tenant default (is_default=true)
-	if agentConfig.WebSearchProviderID == "" {
+	if len(agentConfig.WebSearchProviderIDs) > 1 {
+		if agentConfig.WebSearchProviderID == "" {
+			agentConfig.WebSearchProviderID = agentConfig.WebSearchProviderIDs[0]
+		}
+	} else if len(agentConfig.WebSearchProviderIDs) == 1 {
+		agentConfig.WebSearchProviderID = agentConfig.WebSearchProviderIDs[0]
+		agentConfig.WebSearchProviderIDs = nil
+	} else if agentConfig.WebSearchProviderID == "" {
 		if defaultProvider, err := s.webSearchProviderRepo.GetDefault(ctx, tenantInfo.ID); err == nil && defaultProvider != nil {
 			agentConfig.WebSearchProviderID = defaultProvider.ID
 		}
