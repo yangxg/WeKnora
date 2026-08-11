@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -131,7 +132,9 @@ func TestPerplexityProviderSearchNoCitations(t *testing.T) {
 }
 
 func TestPerplexityProviderSearchError(t *testing.T) {
+	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error":{"message":"invalid api key"}}`))
 	}))
@@ -146,6 +149,82 @@ func TestPerplexityProviderSearchError(t *testing.T) {
 	_, err := provider.Search(context.Background(), "test", 1, false)
 	if err == nil || !strings.Contains(err.Error(), "status 401") {
 		t.Fatalf("Search() error = %v, want status 401", err)
+	}
+	if got := attempts.Load(); got != 1 {
+		t.Fatalf("attempts = %d, want 1 for non-retryable HTTP error", got)
+	}
+}
+
+func TestPerplexityProviderRetriesTransportEOF(t *testing.T) {
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if attempts.Add(1) == 1 {
+			hijacker, ok := w.(http.Hijacker)
+			if !ok {
+				t.Fatal("response writer does not support hijacking")
+			}
+			conn, _, err := hijacker.Hijack()
+			if err != nil {
+				t.Fatalf("hijack: %v", err)
+			}
+			_ = conn.Close()
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"citations": []string{"https://example.com/recovered"},
+			"choices":   []map[string]any{{"message": map[string]any{"content": "answer"}}},
+		})
+	}))
+	defer srv.Close()
+
+	provider := &PerplexityProvider{
+		client:  srv.Client(),
+		baseURL: srv.URL,
+		apiKey:  "test-key",
+		model:   defaultPerplexityModel,
+	}
+	results, err := provider.Search(context.Background(), "test", 1, false)
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("attempts = %d, want 2", got)
+	}
+	if len(results) != 1 || results[0].URL != "https://example.com/recovered" {
+		t.Fatalf("results = %+v", results)
+	}
+}
+
+func TestPerplexityProviderRetriesTruncatedResponse(t *testing.T) {
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if attempts.Add(1) == 1 {
+			w.Header().Set("Content-Length", "1024")
+			_, _ = w.Write([]byte(`{"citations":["https://example.com/truncated"]`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"citations": []string{"https://example.com/complete"},
+			"choices":   []map[string]any{{"message": map[string]any{"content": "answer"}}},
+		})
+	}))
+	defer srv.Close()
+
+	provider := &PerplexityProvider{
+		client:  srv.Client(),
+		baseURL: srv.URL,
+		apiKey:  "test-key",
+		model:   defaultPerplexityModel,
+	}
+	results, err := provider.Search(context.Background(), "test", 1, false)
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("attempts = %d, want 2", got)
+	}
+	if len(results) != 1 || results[0].URL != "https://example.com/complete" {
+		t.Fatalf("results = %+v", results)
 	}
 }
 

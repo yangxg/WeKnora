@@ -163,8 +163,61 @@ func TestSerpAPIProviderSearchError(t *testing.T) {
 		engine:  "google",
 	}
 	_, err := provider.Search(context.Background(), "test", 1, false)
-	if err == nil || !strings.Contains(err.Error(), "Invalid API key") {
-		t.Fatalf("Search() error = %v, want Invalid API key", err)
+	if err == nil || !strings.Contains(err.Error(), "status 401") {
+		t.Fatalf("Search() error = %v, want status 401", err)
+	}
+	if strings.Contains(err.Error(), "Invalid API key") {
+		t.Fatalf("Search() error leaked vendor detail: %v", err)
+	}
+}
+
+func TestSerpAPIProviderErrorDoesNotLeakQuery(t *testing.T) {
+	const query = "secret query"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"error":"No results for secret query"}`))
+	}))
+	defer srv.Close()
+
+	provider := &SerpAPIProvider{
+		client:  srv.Client(),
+		baseURL: srv.URL,
+		apiKey:  "test-key",
+		engine:  "google",
+	}
+	_, err := provider.Search(context.Background(), query, 1, false)
+	if err == nil {
+		t.Fatal("Search() error = nil, want vendor error")
+	}
+	if strings.Contains(err.Error(), query) {
+		t.Fatalf("Search() error leaked query: %v", err)
+	}
+}
+
+func TestSerpAPIProviderTransportErrorDoesNotLeakRequest(t *testing.T) {
+	const (
+		apiKey = "secret-api-key"
+		query  = "secret query"
+	)
+	provider := &SerpAPIProvider{
+		client: &http.Client{Transport: serpAPIRoundTripperFunc(func(*http.Request) (*http.Response, error) {
+			return nil, context.DeadlineExceeded
+		})},
+		baseURL: "https://serpapi.example/search.json",
+		apiKey:  apiKey,
+		engine:  "google",
+	}
+
+	_, err := provider.Search(context.Background(), query, 1, false)
+	if err == nil {
+		t.Fatal("Search() error = nil, want transport error")
+	}
+	for _, secret := range []string{apiKey, query, "api_key="} {
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("Search() error leaked %q: %v", secret, err)
+		}
+	}
+	if !strings.Contains(err.Error(), context.DeadlineExceeded.Error()) {
+		t.Fatalf("Search() error = %v, want root cause", err)
 	}
 }
 
@@ -197,4 +250,10 @@ func TestParseSerpAPIDate(t *testing.T) {
 	if _, ok := parseSerpAPIDate("2 days ago"); ok {
 		t.Error("relative dates must not parse")
 	}
+}
+
+type serpAPIRoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f serpAPIRoundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

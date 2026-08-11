@@ -3,8 +3,10 @@ package web_search
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -30,8 +32,8 @@ const (
 // pins one engine so a single multi-source agent can bind both Google web
 // and Google Scholar as separate provider_ids.
 var validSerpAPIEngines = map[string]struct{}{
-	"google":          {},
-	"google_scholar":  {},
+	"google":         {},
+	"google_scholar": {},
 }
 
 // SerpAPIProvider implements web search via SerpAPI (Google / Google Scholar).
@@ -117,7 +119,7 @@ func (p *SerpAPIProvider) Search(
 	logger.Infof(ctx, "[WebSearch][SerpAPI] engine=%s maxResults=%d", p.engine, maxResults)
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute SerpAPI request: %w", err)
+		return nil, serpAPITransportError(err)
 	}
 	defer resp.Body.Close()
 
@@ -134,12 +136,8 @@ func (p *SerpAPIProvider) Search(
 		return nil, fmt.Errorf("failed to unmarshal SerpAPI response: %w", err)
 	}
 	if response.Error != "" {
-		// Vendor error text can echo the query; truncate and do not log it.
-		detail := strings.TrimSpace(response.Error)
-		if len(detail) > 200 {
-			detail = detail[:200]
-		}
-		return nil, fmt.Errorf("SerpAPI error: %s", detail)
+		// Vendor error text can echo the query or request parameters.
+		return nil, fmt.Errorf("SerpAPI returned an error")
 	}
 
 	results := make([]*types.WebSearchResult, 0, len(response.OrganicResults))
@@ -182,23 +180,26 @@ func readSerpAPIResponseBody(reader io.Reader) ([]byte, error) {
 	return body, nil
 }
 
-func serpAPIHTTPError(statusCode int, body []byte) error {
-	var response serpAPISearchResponse
-	if err := json.Unmarshal(body, &response); err == nil && response.Error != "" {
-		detail := strings.TrimSpace(response.Error)
-		if len(detail) > 200 {
-			detail = detail[:200]
+func serpAPITransportError(err error) error {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return fmt.Errorf("failed to execute SerpAPI request: %w", context.DeadlineExceeded)
+	case errors.Is(err, context.Canceled):
+		return fmt.Errorf("failed to execute SerpAPI request: %w", context.Canceled)
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() {
+			return fmt.Errorf("failed to execute SerpAPI request: network timeout")
 		}
-		return fmt.Errorf("SerpAPI returned status %d: %s", statusCode, detail)
+		return fmt.Errorf("failed to execute SerpAPI request: network error")
 	}
-	detail := strings.TrimSpace(string(body))
-	if len(detail) > 200 {
-		detail = detail[:200]
-	}
-	if detail == "" {
-		return fmt.Errorf("SerpAPI returned status %d", statusCode)
-	}
-	return fmt.Errorf("SerpAPI returned status %d: %s", statusCode, detail)
+	return fmt.Errorf("failed to execute SerpAPI request: transport error")
+}
+
+func serpAPIHTTPError(statusCode int, _ []byte) error {
+	// Response bodies are vendor-controlled and may echo the query or API key.
+	return fmt.Errorf("SerpAPI returned status %d", statusCode)
 }
 
 func parseSerpAPIDate(value string) (time.Time, bool) {

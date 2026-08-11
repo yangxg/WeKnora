@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
+
+var errPerplexityResponseTooLarge = errors.New("Perplexity response exceeds size limit")
 
 const (
 	// defaultPerplexitySearchURL is the official chat-completions endpoint.
@@ -30,6 +33,8 @@ const (
 	// answer is a second-hand vendor synthesis — web_fetch is the path for
 	// first-party page text.
 	maxPerplexitySnippetRunes = 500
+	perplexityMaxAttempts     = 2
+	perplexityRetryDelay      = 100 * time.Millisecond
 )
 
 // PerplexityProvider implements web search via Perplexity chat completions.
@@ -116,32 +121,28 @@ func (p *PerplexityProvider) Search(
 		return nil, fmt.Errorf("failed to marshal Perplexity request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Perplexity request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+p.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
 	// Shape-only: model + max, never the query text.
 	logger.Infof(ctx, "[WebSearch][Perplexity] model=%s maxResults=%d", p.model, maxResults)
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute Perplexity request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := readPerplexityResponseBody(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, perplexityHTTPError(resp.StatusCode, respBody)
-	}
-
 	var response perplexityChatResponse
-	if err := json.Unmarshal(respBody, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal Perplexity response: %w", err)
+	for attempt := 1; attempt <= perplexityMaxAttempts; attempt++ {
+		respBody, statusCode, retryable, err := p.request(ctx, body)
+		if err == nil {
+			if err := json.Unmarshal(respBody, &response); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal Perplexity response: %w", err)
+			}
+			break
+		}
+		if !retryable || attempt == perplexityMaxAttempts {
+			return nil, err
+		}
+		// The upstream occasionally closes a proxied TLS stream before sending
+		// headers or before completing the body. One fresh connection is safe
+		// because this endpoint performs a read-only search.
+		logger.Warnf(ctx, "[WebSearch][Perplexity] transient response failure status=%d; retrying", statusCode)
+		p.client.CloseIdleConnections()
+		if err := waitPerplexityRetry(ctx); err != nil {
+			return nil, fmt.Errorf("Perplexity retry interrupted: %w", err)
+		}
 	}
 
 	snippet := ""
@@ -173,6 +174,45 @@ func (p *PerplexityProvider) Search(
 	}
 	logger.Infof(ctx, "[WebSearch][Perplexity] returned %d results", len(results))
 	return results, nil
+}
+
+// request performs one complete request/response cycle. Only transport errors
+// and incomplete response bodies are retryable; HTTP statuses and local limits
+// are deterministic for the same request and return immediately.
+func (p *PerplexityProvider) request(ctx context.Context, body []byte) ([]byte, int, bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, 0, false, fmt.Errorf("failed to create Perplexity request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, 0, true, fmt.Errorf("failed to execute Perplexity request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := readPerplexityResponseBody(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, !errors.Is(err, errPerplexityResponseTooLarge), err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, resp.StatusCode, false, perplexityHTTPError(resp.StatusCode, respBody)
+	}
+	return respBody, resp.StatusCode, false, nil
+}
+
+func waitPerplexityRetry(ctx context.Context) error {
+	timer := time.NewTimer(perplexityRetryDelay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func dedupeCitationURLs(citations []string) []string {
@@ -229,7 +269,7 @@ func readPerplexityResponseBody(reader io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read Perplexity response: %w", err)
 	}
 	if len(body) > maxPerplexityResponseBytes {
-		return nil, fmt.Errorf("Perplexity response exceeds %d bytes", maxPerplexityResponseBytes)
+		return nil, fmt.Errorf("%w (%d bytes)", errPerplexityResponseTooLarge, maxPerplexityResponseBytes)
 	}
 	return body, nil
 }
