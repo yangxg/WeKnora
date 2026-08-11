@@ -19917,7 +19917,9 @@ const docTemplate = `{
                 "searxng",
                 "keenable",
                 "zhipu",
-                "volcengine"
+                "volcengine",
+                "serpapi",
+                "perplexity"
             ],
             "x-enum-varnames": [
                 "WebSearchProviderTypeBing",
@@ -19929,7 +19931,9 @@ const docTemplate = `{
                 "WebSearchProviderTypeSearxng",
                 "WebSearchProviderTypeKeenable",
                 "WebSearchProviderTypeZhipu",
-                "WebSearchProviderTypeVolcengine"
+                "WebSearchProviderTypeVolcengine",
+                "WebSearchProviderTypeSerpAPI",
+                "WebSearchProviderTypePerplexity"
             ]
         },
         "github_com_Tencent_WeKnora_internal_types.WikiConfig": {

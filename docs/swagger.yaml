@@ -3942,6 +3942,8 @@ definitions:
     - keenable
     - zhipu
     - volcengine
+    - serpapi
+    - perplexity
     type: string
     x-enum-varnames:
     - WebSearchProviderTypeBing
@@ -3954,6 +3956,8 @@ definitions:
     - WebSearchProviderTypeKeenable
     - WebSearchProviderTypeZhipu
     - WebSearchProviderTypeVolcengine
+    - WebSearchProviderTypeSerpAPI
+    - WebSearchProviderTypePerplexity
   github_com_Tencent_WeKnora_internal_types.WikiConfig:
     properties:
       content_instructions:

@@ -15,7 +15,9 @@ const DefaultRRFK = 60
 
 // MaxWebSearchAggregateProviders caps fan-out so a misconfigured agent cannot
 // burn every registered provider on one query.
-const MaxWebSearchAggregateProviders = 4
+// Raised to 5 so a single agent can bind tavily + volcengine + serpapi-google
+// + serpapi-scholar + (optional) perplexity without silent truncation.
+const MaxWebSearchAggregateProviders = 5
 
 // rankedHit is one provider's ordered list used as RRF input.
 type rankedHit struct {

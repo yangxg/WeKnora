@@ -16,6 +16,8 @@ export interface WebSearchProviderEntity {
     | 'keenable'
     | 'zhipu'
     | 'volcengine'
+    | 'serpapi'
+    | 'perplexity'
   description?: string
   parameters: {
     // api_key is never returned by the server in this shape; it lives behind

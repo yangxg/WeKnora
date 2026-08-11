@@ -924,6 +924,14 @@ onMounted(async () => {
   background: rgba(22, 100, 255, 0.12);
   color: #1664FF;
 }
+.provider-card--serpapi .provider-card__badge {
+  background: rgba(0, 120, 212, 0.12);
+  color: #0078D4;
+}
+.provider-card--perplexity .provider-card__badge {
+  background: rgba(32, 178, 170, 0.12);
+  color: #208B87;
+}
 
 .provider-card__body {
   flex: 1;
@@ -1209,5 +1217,13 @@ onMounted(async () => {
 .websearch-drawer--volcengine .setting-drawer__header-icon {
   background: rgba(22, 100, 255, 0.12);
   color: #1664FF;
+}
+.websearch-drawer--serpapi .setting-drawer__header-icon {
+  background: rgba(0, 120, 212, 0.12);
+  color: #0078D4;
+}
+.websearch-drawer--perplexity .setting-drawer__header-icon {
+  background: rgba(32, 178, 170, 0.12);
+  color: #208B87;
 }
 </style>

@@ -138,7 +138,9 @@ func isValidProviderType(provider types.WebSearchProviderType) bool {
 		types.WebSearchProviderTypeSearxng,
 		types.WebSearchProviderTypeKeenable,
 		types.WebSearchProviderTypeZhipu,
-		types.WebSearchProviderTypeVolcengine:
+		types.WebSearchProviderTypeVolcengine,
+		types.WebSearchProviderTypeSerpAPI,
+		types.WebSearchProviderTypePerplexity:
 		return true
 	default:
 		return false
@@ -177,6 +179,14 @@ func validateProviderParameters(provider types.WebSearchProviderType, params typ
 		}
 	case types.WebSearchProviderTypeVolcengine:
 		if err := infra_web_search.ValidateVolcengineParameters(params); err != nil {
+			return err
+		}
+	case types.WebSearchProviderTypeSerpAPI:
+		if err := infra_web_search.ValidateSerpAPIParameters(params); err != nil {
+			return err
+		}
+	case types.WebSearchProviderTypePerplexity:
+		if err := infra_web_search.ValidatePerplexityParameters(params); err != nil {
 			return err
 		}
 	case types.WebSearchProviderTypeDuckDuckGo:

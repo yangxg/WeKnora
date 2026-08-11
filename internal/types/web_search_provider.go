@@ -25,6 +25,8 @@ const (
 	WebSearchProviderTypeKeenable   WebSearchProviderType = "keenable"
 	WebSearchProviderTypeZhipu      WebSearchProviderType = "zhipu"
 	WebSearchProviderTypeVolcengine WebSearchProviderType = "volcengine"
+	WebSearchProviderTypeSerpAPI    WebSearchProviderType = "serpapi"
+	WebSearchProviderTypePerplexity WebSearchProviderType = "perplexity"
 )
 
 // WebSearchProviderEntity represents a configured web search provider instance for a workspace.
@@ -287,6 +289,59 @@ func GetWebSearchProviderTypes() []WebSearchProviderTypeInfo {
 			SupportsProxy:  true,
 			Description:    "Volcengine Doubao Custom web search API (requires API key)",
 			DocsURL:        "https://www.volcengine.com/docs/85508/1512748",
+		},
+		{
+			// engine is ExtraConfig so one type covers Google web and Google
+			// Scholar as separate tenant provider instances (distinct provider_ids
+			// for multi-source RRF).
+			ID:             "serpapi",
+			Name:           "SerpAPI",
+			RequiresAPIKey: true,
+			SupportsProxy:  true,
+			Description:    "SerpAPI Google / Google Scholar search (requires API key; pin engine per instance)",
+			DocsURL:        "https://serpapi.com/",
+			ConfigFields: []WebSearchProviderConfigField{
+				{
+					Key:            "engine",
+					Label:          "Engine",
+					LabelKey:       "webSearchSettings.configFields.serpEngine",
+					Type:           "select",
+					Required:       true,
+					Default:        "google",
+					Description:    "Google web results or Google Scholar organic results.",
+					DescriptionKey: "webSearchSettings.configFields.serpEngineDesc",
+					Options: []WebSearchProviderConfigFieldOption{
+						{Label: "Google", LabelKey: "webSearchSettings.configFields.serpGoogle", Value: "google"},
+						{Label: "Google Scholar", LabelKey: "webSearchSettings.configFields.serpScholar", Value: "google_scholar"},
+					},
+				},
+			},
+		},
+		{
+			// model is optional ExtraConfig; default sonar. Citations are
+			// projected to web hits; vendor answer is snippet only.
+			ID:             "perplexity",
+			Name:           "Perplexity",
+			RequiresAPIKey: true,
+			SupportsProxy:  true,
+			Description:    "Perplexity sonar chat-completions with citation URLs (requires API key)",
+			DocsURL:        "https://docs.perplexity.ai/",
+			ConfigFields: []WebSearchProviderConfigField{
+				{
+					Key:            "model",
+					Label:          "Model",
+					LabelKey:       "webSearchSettings.configFields.perplexityModel",
+					Type:           "select",
+					Required:       false,
+					Default:        "sonar",
+					Description:    "Perplexity model that returns web citations.",
+					DescriptionKey: "webSearchSettings.configFields.perplexityModelDesc",
+					Options: []WebSearchProviderConfigFieldOption{
+						{Label: "sonar", LabelKey: "webSearchSettings.configFields.sonar", Value: "sonar"},
+						{Label: "sonar-pro", LabelKey: "webSearchSettings.configFields.sonarPro", Value: "sonar-pro"},
+					},
+				},
+			},
 		},
 	}
 }
