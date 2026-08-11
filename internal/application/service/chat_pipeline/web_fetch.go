@@ -10,9 +10,14 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-// PluginWebFetch fetches full page content for reranked web search results.
+// PluginWebFetch fetches full page content for web search results.
 // It runs between CHUNK_RERANK and CHUNK_MERGE, replacing snippet content
 // with the full page text for the top N web results.
+//
+// Candidate source: prefer RerankResult (post-rerank order). When rerank is
+// skipped or leaves RerankResult empty (e.g. empty rerank_model_id), fall back
+// to SearchResult so web_fetch still runs — Merge already falls back the same
+// way, so enriching SearchResult content is what the rest of the pipeline sees.
 type PluginWebFetch struct{}
 
 // NewPluginWebFetch creates and registers a new PluginWebFetch instance
@@ -44,23 +49,13 @@ func (p *PluginWebFetch) OnEvent(
 		topN = 3
 	}
 
-	// Find web search results in reranked results
-	var webResults []*types.SearchResult
-	for _, r := range chatManage.RerankResult {
-		if strings.ToLower(r.KnowledgeSource) == "web_search" {
-			webResults = append(webResults, r)
-			if len(webResults) >= topN {
-				break
-			}
-		}
-	}
-
+	webResults, source := selectWebResultsForFetch(chatManage, topN)
 	if len(webResults) == 0 {
 		pipelineInfo(ctx, "WebFetch", "skip", map[string]any{"reason": "no_web_results"})
 		return next()
 	}
 
-	logger.Infof(ctx, "[PIPELINE] stage=WebFetch action=start count=%d", len(webResults))
+	logger.Infof(ctx, "[PIPELINE] stage=WebFetch action=start count=%d source=%s", len(webResults), source)
 
 	// Fetch in parallel
 	type fetchResult struct {
@@ -108,6 +103,41 @@ func (p *PluginWebFetch) OnEvent(
 	pipelineInfo(ctx, "WebFetch", "complete", map[string]any{
 		"fetched": fetchedCount,
 		"total":   len(webResults),
+		"source":  source,
 	})
 	return next()
+}
+
+// selectWebResultsForFetch returns up to topN web_search hits and the list
+// they came from ("rerank" or "search"). Prefer RerankResult; if it has no web
+// hits (including when rerank was skipped entirely), fall back to SearchResult.
+// Returned pointers alias the underlying pipeline slices so content writes stick.
+func selectWebResultsForFetch(chatManage *types.ChatManage, topN int) ([]*types.SearchResult, string) {
+	if topN <= 0 {
+		topN = 3
+	}
+	if hits := takeWebSearchHits(chatManage.RerankResult, topN); len(hits) > 0 {
+		return hits, "rerank"
+	}
+	if hits := takeWebSearchHits(chatManage.SearchResult, topN); len(hits) > 0 {
+		return hits, "search"
+	}
+	return nil, ""
+}
+
+func takeWebSearchHits(results []*types.SearchResult, topN int) []*types.SearchResult {
+	var out []*types.SearchResult
+	for _, r := range results {
+		if r == nil {
+			continue
+		}
+		if strings.ToLower(r.KnowledgeSource) != "web_search" {
+			continue
+		}
+		out = append(out, r)
+		if len(out) >= topN {
+			break
+		}
+	}
+	return out
 }
