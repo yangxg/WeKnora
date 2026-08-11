@@ -300,12 +300,11 @@ func (s *ChunkExtractService) Handle(ctx context.Context, t *asynq.Task) error {
 		handleErr = err
 		return err
 	}
-	// Capture chunk content shape on output — lets traces answer "WHAT
-	// did the LLM call see?" without joining back to the chunk store.
-	// Preview is truncated to keep span rows reasonable.
+	// Capture only the chunk's shape. OCR/caption chunks can reach graph
+	// extraction, so copying a preview here would reintroduce extracted text
+	// into trace storage after the multimodal stage has kept it count-only.
 	if gSpan != nil {
-		graphOut["chunk_chars"] = len([]rune(chunk.Content))
-		graphOut["chunk_preview"] = previewText(chunk.Content, 200)
+		recordTextShapeMetric(graphOut, "chunk", chunk.Content)
 	}
 	kb, err := s.knowledgeBaseRepo.GetKnowledgeBaseByID(ctx, chunk.KnowledgeBaseID)
 	if err != nil {

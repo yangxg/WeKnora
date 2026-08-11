@@ -187,10 +187,9 @@ func (s *ImageMultimodalService) Handle(ctx context.Context, task *asynq.Task) e
 	}
 
 	// Output map populated as we go — the deferred close picks it up.
-	// Captures real VLM results (model id, byte count, OCR/caption
-	// previews, downstream chunk counts) so the trace viewer can answer
-	// "what did this image actually produce?" without joining back to
-	// the chunks table.
+	// Captures shape-only VLM results (model id, byte count, OCR/caption
+	// character counts, downstream chunk counts). Extracted text remains
+	// in governed chunks and is never copied into trace output.
 	imgOut := types.JSONMap{}
 
 	// finalize-once semantics: on success we always decrement the parent's
@@ -276,8 +275,7 @@ func (s *ImageMultimodalService) Handle(ctx context.Context, task *asynq.Task) e
 			ocrText = sanitizeOCRText(ocrText)
 			if ocrText != "" {
 				imageInfo.OCRText = ocrText
-				imgOut["ocr_chars"] = len([]rune(ocrText))
-				imgOut["ocr_preview"] = previewText(ocrText, 200)
+				recordTextShapeMetric(imgOut, "ocr", ocrText)
 			} else {
 				logger.Warnf(ctx, "[ImageMultimodal] OCR returned empty/invalid content for %s, discarded", payload.ImageURL)
 				imgOut["ocr_chars"] = 0
@@ -292,8 +290,7 @@ func (s *ImageMultimodalService) Handle(ctx context.Context, task *asynq.Task) e
 		imgOut["caption_error"] = capErr.Error()
 	} else if caption != "" {
 		imageInfo.Caption = caption
-		imgOut["caption_chars"] = len([]rune(caption))
-		imgOut["caption_preview"] = previewText(caption, 200)
+		recordTextShapeMetric(imgOut, "caption", caption)
 	}
 
 	// Build child chunks for OCR and caption results
