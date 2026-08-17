@@ -15,6 +15,8 @@ export interface WebSearchProviderEntity {
     | 'searxng'
     | 'keenable'
     | 'zhipu'
+    | 'metaso'
+    | 'exa'
     | 'volcengine'
     | 'serpapi'
     | 'perplexity'

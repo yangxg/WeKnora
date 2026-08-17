@@ -6,7 +6,23 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
+
+// governedMarkdownTenantStub satisfies interfaces.TenantService by embedding it:
+// only the one method resolveDocReader takes a value of is defined, and any
+// other call panics. That is deliberate — the governed `md` path must not reach
+// the tenant service at all, so an accidental dependency shows up as a failure
+// here rather than as a silent database hit during ingest.
+type governedMarkdownTenantStub struct {
+	interfaces.TenantService
+}
+
+func (*governedMarkdownTenantStub) GetWeKnoraCloudCredentials(
+	context.Context,
+) *types.WeKnoraCloudCredentials {
+	return nil
+}
 
 // ResearchFlow W3-001.
 //
@@ -21,9 +37,12 @@ import (
 // — every stored offset silently stops pointing at what it addressed. That must
 // break here, loudly, rather than at a citation months later.
 func TestGovernedMarkdownResolvesToTheVerbatimGoReader(t *testing.T) {
-	// The zero value suffices: this branch returns before touching any
-	// dependency, which is itself part of what makes the path predictable.
-	service := &knowledgeService{}
+	// A tenant service is supplied only because resolveDocReader now builds
+	// docparser.ReaderDeps — including the cloud-credential resolver — before
+	// NewReader picks a branch. Nothing here is reached for `md`: the simple
+	// format branch returns without consulting any dependency, and this stub
+	// would panic if it did, which keeps that fact under test.
+	service := &knowledgeService{tenantService: &governedMarkdownTenantStub{}}
 
 	for _, fileType := range []string{"md", "markdown", ".MD"} {
 		t.Run(fileType, func(t *testing.T) {

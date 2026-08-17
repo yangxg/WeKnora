@@ -4,12 +4,28 @@ This ledger records every ResearchFlow-specific divergence from Tencent/WeKnora 
 
 ## Upstream baseline
 
-- Synchronized on: 2026-08-05 (W3 opening sync)
+- Synchronized on: 2026-08-18 (ResearchFlow ADR-0024 M-c opening sync)
 - Upstream remote: `https://github.com/Tencent/WeKnora.git`
-- Baseline commit: `350d9e4e`
-- Baseline describe: `v0.7.1-147-g350d9e4e`
+- Baseline commit: `9b4f792a`
+- Baseline describe: `v0.7.2-85-g9b4f792a`
+- Build prerequisites, both discovered the hard way at this sync: Go **1.26.6**
+  (`go.mod` requires `go 1.26.0`, while Ubuntu 24.04's `golang-go` ships only 1.22),
+  and `libsqlite3-dev` — without the latter the `sqlite-vec` cgo bindings fail on
+  a missing `sqlite3.h`, which takes `internal/container` with it and therefore
+  makes the whole tree unbuildable.
 
 Sync history: W0 established `5780affd` (`v0.7.1-115`), on which everything recorded for W1, W2a0 and W2a1 was measured. `main` was fast-forwarded to `ccb0cee3` (`v0.7.1-126`) mid-W2a1 without merging into `researchflow-ext`, after checking that the 11 new commits touched none of the W2a1 blast radius. At the W2a2 opening sync `main` advanced again to `82ea91f1` and was merged into `researchflow-ext` (merge `bd097eb6`, no conflicts, 13 upstream commits across 28 files); W2a1's build and tests were re-verified on the merged tree. At the W3 opening sync `main` advanced to `350d9e4e` and was merged into `researchflow-ext` (merge `149791f4`, no conflicts, 57 files, 6206 insertions). That merge was checked against the one thing W3 depends on: `resolveDocReader` is unchanged, and upstream's only edit to `knowledge_process.go` was `cloneKnowledge` gaining `FolderPath`.
+
+At the ADR-0024 M-c opening sync `main` advanced to `9b4f792a` (**138 upstream commits**, `v0.7.1-147` → `v0.7.2-85`) and was merged into `researchflow-ext` with **13 conflicting files**. Every conflict was additive on both sides — upstream adding the `exa`/`metaso` search providers and the `feishu_drive`/`lark_drive`/`gitlab`/`ima` connectors, the fork adding `volcengine`/`serpapi`/`perplexity` and `discovery`/`academic` — so each was resolved by keeping both sets of entries. Three were the generated swagger artifacts (`docs/docs.go`, `swagger.json`, `swagger.yaml`), resolved by merging the enum lists to match the hand-resolved `types` source rather than by regenerating.
+
+One conflict needed more than that: upstream split the single `feishu` connector package into `feishu/core`, `feishu/drive` and `feishu/wiki`, so `container.go`'s old `feishuConnector` import had to go while the fork's `discovery` and `academic` registrations stayed.
+
+Two fork certification tests then failed, and neither was a conflict `git` reported — both are why this stage waited for a working Go toolchain instead of merging on inspection:
+
+- `TestGovernedMarkdownResolvesToTheVerbatimGoReader` panicked. Upstream moved dependency construction ahead of branch selection in `resolveDocReader`, so a zero-value `knowledgeService` now dereferences a nil `tenantService` before `NewReader` ever picks a reader. **The invariant itself is intact**: `NewReader` still returns `&SimpleFormatReader{}` for `engine == "" && !isURL && IsSimpleFormat(fileType)`, and upstream's own `unset_engine_handles_simple_formats_in_Go` case passes. The test now supplies a stub tenant service that panics if consulted, which keeps "the governed `md` path touches no dependency" under test rather than merely assumed.
+- `TestMergeSequentialChunks_LeavesTheRangeBehindTheJoinedContent` failed because upstream made the trusted merge path position-aware (`b7b85621`, `e0ea453e`, `0a3f6b0f`): two trusted chunks separated by a position gap are now kept apart instead of joined. That test's own comment had named this outcome in advance — "if merging ever starts maintaining the range, this test fails, and that is the signal to revisit the restriction rather than a regression" — so it was rewritten as two cases: trusted chunks with a gap stay separate and keep addressable ranges, while an untrusted pair is still joined into a body its range no longer addresses. The restriction ResearchFlow relies on is unchanged: governed retrieval runs `hybrid-search + skip_context_enrichment` and never executes this pipeline.
+
+Verification: `go build ./...` clean. Test failures were attributed by running the identical suite on a `git worktree` of the pre-merge baseline and diffing the failing-package sets. Eight packages fail identically on both sides, every one of them on an SSRF refusal naming `198.18.0.0/15` or `fdfe:dcba:9876::/48` — this machine's proxy resolves public hostnames to fake-ip ranges, so these are environmental and not attributable to the merge. `internal/datasource/connector/feishu` fails on the baseline only and is gone after the merge (upstream deleted the package). Four packages fail only after the merge — `internal/application/service`, `.../service/file`, `.../connector/ima`, `internal/sandbox` — and all four are upstream additions the fork has never touched (`git diff --name-only` against them returns zero fork-side files); their failures are the same fake-ip SSRF refusals plus upstream's new MCP/sandbox/query-template suites. Both fork certification tests pass on the merged tree.
 
 ## Branch discipline
 

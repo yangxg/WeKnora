@@ -369,6 +369,7 @@ const messages = {
       },
       "search": {
         "noResults": "未找到匹配的内容",
+        "candidatesBelowThreshold": "命中 {count} 条候选，相关性不足，未用于回答",
         "foundResultsFromFiles": "找到 {count} 个结果，来自 {files} 个文件",
         "foundResults": "找到 {count} 个结果",
         "foundMixedResults": "找到 {count} 个结果（{docCount} 篇文档，{webCount} 条网页）",
@@ -486,6 +487,8 @@ const messages = {
     "knowledgeEditor": {
       "wikiBrowser": {
         "viewInGraph": "在图谱中查看",
+        "editingBadge": "编辑中",
+        "pageActions": "页面操作",
         "version": "v{ver}",
         "filterSummary": "摘要",
         "filterEntity": "实体",
@@ -863,6 +866,7 @@ const messages = {
       },
       "search": {
         "noResults": "No matching content found",
+        "candidatesBelowThreshold": "Matched {count} candidate(s), none relevant enough to use",
         "foundResultsFromFiles": "Found {count} result(s) from {files} file(s)",
         "foundResults": "Found {count} result(s)",
         "foundMixedResults": "Found {count} result(s) ({docCount} documents, {webCount} web results)",
@@ -980,6 +984,8 @@ const messages = {
     "knowledgeEditor": {
       "wikiBrowser": {
         "viewInGraph": "View in Graph",
+        "editingBadge": "Editing",
+        "pageActions": "Page actions",
         "version": "v{ver}",
         "filterSummary": "Summaries",
         "filterEntity": "Entities",

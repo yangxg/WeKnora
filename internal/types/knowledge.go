@@ -27,12 +27,15 @@ const (
 	ChannelWechat           = "wechat"            // WeChat
 	ChannelWecom            = "wecom"             // WeCom (企业微信)
 	ChannelFeishu           = "feishu"            // Feishu / Lark
+	ChannelFeishuDrive      = "feishu_drive"      // Feishu Drive (云盘)
+	ChannelLarkDrive        = "lark_drive"        // Lark Drive (international)
 	ChannelDingtalk         = "dingtalk"          // DingTalk
 	ChannelSlack            = "slack"             // Slack
 	ChannelIM               = "im"                // Generic IM channel
 	ChannelNotion           = "notion"            // Notion
 	ChannelYuque            = "yuque"             // Yuque (语雀)
 	ChannelRSS              = "rss"               // RSS / Atom feed
+	ChannelIMA              = "ima"               // Tencent IMA (ima.qq.com)
 	ChannelDiscovery        = "discovery"         // Web search discovery
 	// ChannelAcademic marks a candidate from an academic registry. It is kept
 	// apart from ChannelDiscovery because the two lanes differ in what their

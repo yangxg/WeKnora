@@ -33,6 +33,7 @@ const props = defineProps<{
   items: KnowledgeItem[];
   selectedIds: Set<string>;
   canEdit: boolean;
+  canDownload: boolean;
   canMutateKnowledge: boolean;
   traceVisibleIds: Record<string, boolean>;
   tagList: Tag[];
@@ -60,7 +61,7 @@ const emit = defineEmits<{
   (e: 'open', item: KnowledgeItem): void;
   (e: 'toggle-row', id: string, checked: boolean, shiftKey: boolean): void;
   (e: 'toggle-all', checked: boolean): void;
-  (e: 'action', action: 'edit' | 'reparse' | 'cancel-parse' | 'move' | 'move-folder' | 'delete' | 'view-trace' | 'batch-manage', item: KnowledgeItem): void;
+  (e: 'action', action: 'download' | 'edit' | 'reparse' | 'cancel-parse' | 'move' | 'move-folder' | 'delete' | 'view-trace' | 'batch-manage', item: KnowledgeItem): void;
   (e: 'probe-trace', item: KnowledgeItem): void;
   (e: 'tag-edit', item: KnowledgeItem): void;
   (e: 'open-folder', path: string): void;
@@ -107,8 +108,14 @@ const formatTime = (time?: string) => {
 const getSourceInfo = (item: KnowledgeItem): { icon: string; label: string } => {
   const ch = item.channel;
   if (ch === 'feishu') return { icon: 'cloud-download', label: t('knowledgeBase.channelFeishu') };
+  // Drive (云盘) connectors use their own channel so Drive docs show
+  // "飞书云盘" / "Lark 云盘", distinct from the wiki connector's "飞书".
+  if (ch === 'feishu_drive') return { icon: 'cloud-download', label: t('knowledgeBase.channelFeishuDrive') };
+  if (ch === 'lark_drive') return { icon: 'cloud-download', label: t('knowledgeBase.channelLarkDrive') };
   if (ch === 'notion') return { icon: 'cloud-download', label: t('knowledgeBase.channelNotion') };
   if (ch === 'yuque') return { icon: 'cloud-download', label: t('knowledgeBase.channelYuque') };
+  if (ch === 'gitlab') return { icon: 'cloud-download', label: t('knowledgeBase.channelGitLab') };
+  if (ch === 'ima') return { icon: 'cloud-download', label: t('knowledgeBase.channelIma') };
   if (ch === 'wechat') return { icon: 'cloud-download', label: t('knowledgeBase.channelWechat') };
   if (ch === 'wecom') return { icon: 'cloud-download', label: t('knowledgeBase.channelWecom') };
   if (ch === 'dingtalk') return { icon: 'cloud-download', label: t('knowledgeBase.channelDingtalk') };
@@ -231,7 +238,7 @@ const onFolderPicked = (item: KnowledgeItem, path: string) => {
   emit('move-to-folder', item, path);
 };
 
-const handleAction = (action: 'edit' | 'reparse' | 'cancel-parse' | 'move' | 'move-folder' | 'delete' | 'view-trace' | 'batch-manage', item: KnowledgeItem) => {
+const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' | 'move' | 'move-folder' | 'delete' | 'view-trace' | 'batch-manage', item: KnowledgeItem) => {
   // The folder picker opens inside this same popup, so keep the menu open.
   if (action === 'move-folder') {
     folderPickerItemId.value = item.id;
@@ -394,8 +401,10 @@ const handleAction = (action: 'edit' | 'reparse' | 'cancel-parse' | 'move' | 'mo
               <div v-else-if="moveMenuMode === 'normal'" class="card-menu">
                 <DocumentActionMenu
                   :item="item"
+                  :can-download="canDownload"
                   :can-mutate-knowledge="canMutateKnowledge"
                   :trace-visible="!!traceVisibleIds[item.id] || (item.parse_status === 'pending' || item.parse_status === 'processing' || item.parse_status === 'finalizing')"
+                  @download="handleAction('download', item)"
                   @edit="handleAction('edit', item)"
                   @view-trace="handleAction('view-trace', item)"
                   @reparse="handleAction('reparse', item)"
