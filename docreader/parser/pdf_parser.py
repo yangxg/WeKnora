@@ -1446,6 +1446,10 @@ class PDFParser(BaseParser):
 
         pdf = pdfium.PdfDocument(content)
         images: dict = {}
+        # v2 ImageRef provenance. Keys are the exact Markdown targets written
+        # below; each fact is known at the parser production site, so clients
+        # never need to reverse-engineer filename conventions.
+        image_provenance: dict = {}
         try:
             page_count = len(pdf)
 
@@ -1487,6 +1491,11 @@ class PDFParser(BaseParser):
                             vector_clips[i] = clips
                             for ref_path, b64, _y, _cap in clips:
                                 images[ref_path] = b64
+                                image_provenance[ref_path] = {
+                                    "page_number": i + 1,
+                                    "source_type": "vector_figure",
+                                    "markdown_target": ref_path,
+                                }
                     text = _postprocess_pdf_text(text)
                     if cls == "text" and vector_clips.get(i):
                         text = _inject_figure_markdown_before_captions(
@@ -1514,6 +1523,11 @@ class PDFParser(BaseParser):
                 for i, img_bytes in rendered.items():
                     ref_path = f"images/{base_name}_page_{i+1}.jpg"
                     images[ref_path] = base64.b64encode(img_bytes).decode("utf-8")
+                    image_provenance[ref_path] = {
+                        "page_number": i + 1,
+                        "source_type": "scanned_page",
+                        "markdown_target": ref_path,
+                    }
 
             # Pass 3: extract embedded figures from native text pages so the Go
             # App can OCR/caption them (logos/watermarks/tiny images filtered).
@@ -1522,9 +1536,14 @@ class PDFParser(BaseParser):
                 embedded = _extract_embedded_images(
                     pdf, classes, pdfium_r, base_name, quality
                 )
-                for refs in embedded.values():
+                for page_i, refs in embedded.items():
                     for ref_path, b64, _y in refs:
                         images[ref_path] = b64
+                        image_provenance[ref_path] = {
+                            "page_number": page_i + 1,
+                            "source_type": "embedded_image",
+                            "markdown_target": ref_path,
+                        }
         finally:
             _close_pdfium_resource(pdf)
 
@@ -1569,4 +1588,9 @@ class PDFParser(BaseParser):
             embedded_count,
             len(content_text),
         )
-        return Document(content=content_text, images=images, metadata=metadata)
+        return Document(
+            content=content_text,
+            images=images,
+            image_provenance=image_provenance,
+            metadata=metadata,
+        )

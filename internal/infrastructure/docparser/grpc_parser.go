@@ -182,11 +182,14 @@ func (p *GRPCDocumentReader) readStream(
 
 		if img := frame.GetImage(); img != nil {
 			result.ImageRefs = append(result.ImageRefs, types.ImageRef{
-				Filename:    img.GetFilename(),
-				OriginalRef: img.GetOriginalRef(),
-				MimeType:    img.GetMimeType(),
-				StorageKey:  img.GetStorageKey(),
-				ImageData:   img.GetImageData(),
+				Filename:       img.GetFilename(),
+				OriginalRef:    img.GetOriginalRef(),
+				MimeType:       img.GetMimeType(),
+				StorageKey:     img.GetStorageKey(),
+				ImageData:      img.GetImageData(),
+				PageNumber:     img.GetPageNumber(),
+				SourceType:     img.GetSourceType(),
+				MarkdownTarget: img.GetMarkdownTarget(),
 			})
 		}
 	}
@@ -217,11 +220,14 @@ func (p *GRPCDocumentReader) readUnary(
 		result.ImageRefs = make([]types.ImageRef, 0, len(refs))
 		for _, img := range refs {
 			result.ImageRefs = append(result.ImageRefs, types.ImageRef{
-				Filename:    img.GetFilename(),
-				OriginalRef: img.GetOriginalRef(),
-				MimeType:    img.GetMimeType(),
-				StorageKey:  img.GetStorageKey(),
-				ImageData:   img.GetImageData(),
+				Filename:       img.GetFilename(),
+				OriginalRef:    img.GetOriginalRef(),
+				MimeType:       img.GetMimeType(),
+				StorageKey:     img.GetStorageKey(),
+				ImageData:      img.GetImageData(),
+				PageNumber:     img.GetPageNumber(),
+				SourceType:     img.GetSourceType(),
+				MarkdownTarget: img.GetMarkdownTarget(),
 			})
 		}
 	}

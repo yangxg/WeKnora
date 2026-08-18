@@ -3779,17 +3779,20 @@ func (s *knowledgeService) enqueueImageMultimodalTasks(
 
 		lang := types.LanguageFromContextOrDefault(ctx)
 		payload := types.ImageMultimodalPayload{
-			TenantID:        knowledge.TenantID,
-			KnowledgeID:     knowledge.ID,
-			KnowledgeBaseID: kb.ID,
-			ChunkID:         chunkID,
-			ImageURL:        img.ServingURL,
-			EnableOCR:       true,
-			EnableCaption:   true,
-			Language:        lang,
-			ImageSourceType: metadata["image_source_type"],
-			Attempt:         attempt,
-			ImageIndex:      idx,
+			TenantID:              knowledge.TenantID,
+			KnowledgeID:           knowledge.ID,
+			KnowledgeBaseID:       kb.ID,
+			ChunkID:               chunkID,
+			ImageURL:              img.ServingURL,
+			EnableOCR:             true,
+			EnableCaption:         true,
+			Language:              lang,
+			ImageSourceType:       metadata["image_source_type"],
+			ImagePageNumber:       img.PageNumber,
+			ImageParserSourceType: img.SourceType,
+			ImageMarkdownTarget:   img.MarkdownTarget,
+			Attempt:               attempt,
+			ImageIndex:            idx,
 		}
 
 		langfuse.InjectTracing(ctx, &payload)

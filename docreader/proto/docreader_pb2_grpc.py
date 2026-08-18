@@ -49,6 +49,11 @@ class DocReaderStub(object):
                 request_serializer=docreader__pb2.ListEnginesRequest.SerializeToString,
                 response_deserializer=docreader__pb2.ListEnginesResponse.FromString,
                 _registered_method=True)
+        self.GetRuntimeInfo = channel.unary_unary(
+                '/docreader.DocReader/GetRuntimeInfo',
+                request_serializer=docreader__pb2.RuntimeInfoRequest.SerializeToString,
+                response_deserializer=docreader__pb2.RuntimeInfoResponse.FromString,
+                _registered_method=True)
 
 
 class DocReaderServicer(object):
@@ -78,6 +83,14 @@ class DocReaderServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetRuntimeInfo(self, request, context):
+        """GetRuntimeInfo returns only an allowlisted parsing configuration and build
+        identity. It deliberately excludes endpoint/TLS/auth/proxy/SSRF values.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DocReaderServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -95,6 +108,11 @@ def add_DocReaderServicer_to_server(servicer, server):
                     servicer.ListEngines,
                     request_deserializer=docreader__pb2.ListEnginesRequest.FromString,
                     response_serializer=docreader__pb2.ListEnginesResponse.SerializeToString,
+            ),
+            'GetRuntimeInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetRuntimeInfo,
+                    request_deserializer=docreader__pb2.RuntimeInfoRequest.FromString,
+                    response_serializer=docreader__pb2.RuntimeInfoResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -178,6 +196,33 @@ class DocReader(object):
             '/docreader.DocReader/ListEngines',
             docreader__pb2.ListEnginesRequest.SerializeToString,
             docreader__pb2.ListEnginesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetRuntimeInfo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/docreader.DocReader/GetRuntimeInfo',
+            docreader__pb2.RuntimeInfoRequest.SerializeToString,
+            docreader__pb2.RuntimeInfoResponse.FromString,
             options,
             channel_credentials,
             insecure,

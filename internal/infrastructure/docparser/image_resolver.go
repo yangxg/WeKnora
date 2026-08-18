@@ -60,6 +60,11 @@ type StoredImage struct {
 	OriginalRef string // reference in the original markdown
 	ServingURL  string // provider:// URL (e.g. local://images/xxx.png, minio://bucket/key)
 	MimeType    string
+	// v2 parser provenance retained through storage. Empty/zero keeps v1
+	// behavior; callers must not infer values from filenames when absent.
+	PageNumber     uint32
+	SourceType     string
+	MarkdownTarget string
 }
 
 // ImageResolver reads images from a DocReader ReadResult (inline bytes only)
@@ -104,6 +109,12 @@ func (r *ImageResolver) ResolveAndStore(
 	refMap := make(map[string]types.ImageRef)
 	for _, ref := range result.ImageRefs {
 		refMap[ref.OriginalRef] = ref
+		// v2 target is the exact ![]() destination emitted by the parser before
+		// storage rewrites. Keep OriginalRef too for older producers and relative
+		// HTML paths; never synthesize a target from Filename when absent.
+		if ref.MarkdownTarget != "" {
+			refMap[ref.MarkdownTarget] = ref
+		}
 	}
 	savedRefs := make(map[string]StoredImage)
 
@@ -181,9 +192,12 @@ func (r *ImageResolver) saveReferencedImage(
 	if ref.Filename != "" {
 		if cached, ok := savedRefs["__filename__:"+ref.Filename]; ok {
 			stored := StoredImage{
-				OriginalRef: refPath,
-				ServingURL:  cached.ServingURL,
-				MimeType:    cached.MimeType,
+				OriginalRef:    refPath,
+				ServingURL:     cached.ServingURL,
+				MimeType:       cached.MimeType,
+				PageNumber:     ref.PageNumber,
+				SourceType:     ref.SourceType,
+				MarkdownTarget: ref.MarkdownTarget,
 			}
 			savedRefs[refPath] = stored
 			return stored, true
@@ -206,9 +220,12 @@ func (r *ImageResolver) saveReferencedImage(
 	}
 
 	stored := StoredImage{
-		OriginalRef: refPath,
-		ServingURL:  servingURL,
-		MimeType:    ref.MimeType,
+		OriginalRef:    refPath,
+		ServingURL:     servingURL,
+		MimeType:       ref.MimeType,
+		PageNumber:     ref.PageNumber,
+		SourceType:     ref.SourceType,
+		MarkdownTarget: ref.MarkdownTarget,
 	}
 	savedRefs[refPath] = stored
 	if ref.Filename != "" {

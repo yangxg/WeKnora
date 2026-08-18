@@ -25,10 +25,68 @@ from docreader.proto.docreader_pb2 import (
     ReadStreamResponse,
     ListEnginesResponse,
     ParserEngineInfo,
+    RuntimeInfoResponse,
 )
 from docreader.utils.request import init_logging_request_id, request_id_context
 
 _SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
+
+# Only parser-output knobs are safe to disclose to an external materialization
+# adapter. Do not turn config.dump_config() into an RPC: it contains proxy URLs,
+# internal ODL URLs, gRPC binding and image-output paths, none of which explains
+# document body bytes and several of which disclose deployment topology.
+_RUNTIME_CONFIG_KEYS = (
+    "DOCREADER_DOCX_MAX_PAGES",
+    "DOCREADER_MARKITDOWN_MAX_WORKERS",
+    "DOCREADER_ODL_MAX_WORKERS",
+    "DOCREADER_ODL_HYBRID",
+    "DOCREADER_ODL_HYBRID_MODE",
+    "DOCREADER_ODL_HYBRID_FALLBACK",
+    "DOCREADER_ODL_MARKDOWN_WITH_HTML",
+    "DOCREADER_PDF_RENDER_MAX_WORKERS",
+    "DOCREADER_PDF_RENDER_PARALLELISM",
+    "DOCREADER_PDF_RENDER_DPI",
+    "DOCREADER_PDF_JPEG_QUALITY",
+    "DOCREADER_PDF_RENDER_MAX_EDGE",
+)
+_RUNTIME_LIBRARIES = (
+    "markitdown",
+    "pypdf",
+    "pypdfium2",
+    "python-docx",
+    "opendataloader-pdf",
+    "openpyxl",
+)
+_RUNTIME_IMAGE_TAG = os.environ.get("DOCREADER_IMAGE_TAG", "")
+
+
+def _runtime_info() -> tuple[dict[str, str], dict[str, str], str]:
+    """Return safe parser identity only; never endpoint, proxy or secret config."""
+
+    import importlib.metadata
+
+    effective = config.dump_config()
+    parsing_config = {
+        key: str(effective[key]) for key in _RUNTIME_CONFIG_KEYS if key in effective
+    }
+    library_versions: dict[str, str] = {}
+    for name in _RUNTIME_LIBRARIES:
+        try:
+            library_versions[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    return parsing_config, library_versions, _RUNTIME_IMAGE_TAG
+
+
+def _image_ref_provenance(ref_path: str, provenance: dict | None) -> dict:
+    """Return v2 facts for this exact parser target; empty means v1 semantics."""
+
+    facts = (provenance or {}).get(ref_path, {})
+    return {
+        "page_number": int(facts.get("page_number", 0) or 0),
+        "source_type": str(facts.get("source_type", "") or ""),
+        "markdown_target": str(facts.get("markdown_target", "") or ""),
+    }
 
 
 def to_valid_utf8_text(s: Optional[str]) -> str:
@@ -55,7 +113,10 @@ init_logging_request_id()
 
 
 def _resolve_images(
-    images: dict, request_id: str, storage_map: dict | None = None
+    images: dict,
+    request_id: str,
+    storage_map: dict | None = None,
+    provenance: dict | None = None,
 ) -> tuple[str, list]:
     """Resolve document images into inline bytes for the Go App to persist.
 
@@ -93,12 +154,14 @@ def _resolve_images(
         ext = os.path.splitext(fname)[1].lower()
         mime = mime_map.get(ext, "application/octet-stream")
 
+        facts = _image_ref_provenance(ref_path, provenance)
         refs.append(
             ImageRef(
                 filename=fname,
                 original_ref=ref_path,
                 mime_type=mime,
                 image_data=img_bytes,
+                **facts,
             )
         )
 
@@ -121,7 +184,7 @@ def _mime_for_ref(ref_path: str) -> tuple[str, str]:
     return fname, mime_map.get(ext, "application/octet-stream")
 
 
-def _iter_image_refs(images: dict):
+def _iter_image_refs(images: dict, provenance: dict | None = None):
     """Yield ImageRef one at a time, freeing each source entry as we go.
 
     Used by the streaming RPC so we never hold every decoded image plus its
@@ -138,11 +201,13 @@ def _iter_image_refs(images: dict):
             img_bytes = b64data.encode("utf-8") if isinstance(b64data, str) else b64data
         del b64data
         fname, mime = _mime_for_ref(ref_path)
+        facts = _image_ref_provenance(ref_path, provenance)
         yield ImageRef(
             filename=fname,
             original_ref=ref_path,
             mime_type=mime,
             image_data=img_bytes,
+            **facts,
         )
 
 
@@ -200,7 +265,9 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                     return ReadResponse(error=error_msg)
 
                 _c = to_valid_utf8_text
-                image_dir, image_refs = _resolve_images(result.images, request_id)
+                image_dir, image_refs = _resolve_images(
+                    result.images, request_id, provenance=result.image_provenance
+                )
 
                 response = ReadResponse(
                     markdown_content=_c(result.content),
@@ -262,7 +329,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             )
 
             sent = 0
-            for ref in _iter_image_refs(images):
+            for ref in _iter_image_refs(images, provenance=result.image_provenance):
                 yield ReadStreamResponse(image=ref)
                 sent += 1
 
@@ -286,6 +353,19 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             for e in engines_data
         ]
         return ListEnginesResponse(engines=engines)
+
+    def GetRuntimeInfo(self, request, context):
+        """Expose safe parser identity for a remote materialization adapter.
+
+        This deliberately calls `_runtime_info`, not `config.dump_config`
+        directly: network/secret/deployment settings never cross this RPC.
+        """
+        parsing_config, library_versions, image_tag = _runtime_info()
+        return RuntimeInfoResponse(
+            parsing_config=parsing_config,
+            library_versions=library_versions,
+            image_tag=image_tag,
+        )
 
 
 def main():

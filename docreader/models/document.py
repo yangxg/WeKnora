@@ -68,6 +68,11 @@ class Document(BaseModel):
     images: Dict[str, str] = Field(
         default_factory=dict, description="Images in the document"
     )
+    # Parser-produced facts keyed by the exact `images` path. Missing entries
+    # mean v1 behavior; consumers must preserve that rather than infer fields.
+    image_provenance: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Per-image parser provenance"
+    )
 
     chunks: List[Chunk] = Field(default_factory=list, description="document chunks")
     metadata: Dict[str, Any] = Field(

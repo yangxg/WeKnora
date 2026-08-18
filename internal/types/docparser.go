@@ -33,6 +33,11 @@ type ImageRef struct {
 	MimeType    string
 	StorageKey  string
 	ImageData   []byte // inline image bytes (universal fallback for cross-machine deployments)
+	// v2 parser provenance. Empty/zero means an older producer; consumers must
+	// preserve v1 behavior rather than reverse-engineer filename conventions.
+	PageNumber     uint32 // 1-based PDF page; 0 when unavailable/not applicable
+	SourceType     string // scanned_page | embedded_image | vector_figure
+	MarkdownTarget string // exact ![]() destination before storage rewrite
 	// IsOriginal marks references that point to the originally uploaded file
 	// itself (e.g. when the user uploads a standalone image). Such references
 	// must not be dropped by the icon/size filter — otherwise a small image

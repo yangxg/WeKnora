@@ -6,6 +6,34 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class RuntimeInfoRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class RuntimeInfoResponse(_message.Message):
+    __slots__ = ("parsing_config", "library_versions", "image_tag")
+    class ParsingConfigEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    class LibraryVersionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    PARSING_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    LIBRARY_VERSIONS_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
+    parsing_config: _containers.ScalarMap[str, str]
+    library_versions: _containers.ScalarMap[str, str]
+    image_tag: str
+    def __init__(self, parsing_config: _Optional[_Mapping[str, str]] = ..., library_versions: _Optional[_Mapping[str, str]] = ..., image_tag: _Optional[str] = ...) -> None: ...
+
 class ReadConfig(_message.Message):
     __slots__ = ("parser_engine", "parser_engine_overrides")
     class ParserEngineOverridesEntry(_message.Message):
@@ -40,18 +68,24 @@ class ReadRequest(_message.Message):
     def __init__(self, file_content: _Optional[bytes] = ..., file_name: _Optional[str] = ..., file_type: _Optional[str] = ..., url: _Optional[str] = ..., title: _Optional[str] = ..., config: _Optional[_Union[ReadConfig, _Mapping]] = ..., request_id: _Optional[str] = ...) -> None: ...
 
 class ImageRef(_message.Message):
-    __slots__ = ("filename", "original_ref", "mime_type", "storage_key", "image_data")
+    __slots__ = ("filename", "original_ref", "mime_type", "storage_key", "image_data", "page_number", "source_type", "markdown_target")
     FILENAME_FIELD_NUMBER: _ClassVar[int]
     ORIGINAL_REF_FIELD_NUMBER: _ClassVar[int]
     MIME_TYPE_FIELD_NUMBER: _ClassVar[int]
     STORAGE_KEY_FIELD_NUMBER: _ClassVar[int]
     IMAGE_DATA_FIELD_NUMBER: _ClassVar[int]
+    PAGE_NUMBER_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    MARKDOWN_TARGET_FIELD_NUMBER: _ClassVar[int]
     filename: str
     original_ref: str
     mime_type: str
     storage_key: str
     image_data: bytes
-    def __init__(self, filename: _Optional[str] = ..., original_ref: _Optional[str] = ..., mime_type: _Optional[str] = ..., storage_key: _Optional[str] = ..., image_data: _Optional[bytes] = ...) -> None: ...
+    page_number: int
+    source_type: str
+    markdown_target: str
+    def __init__(self, filename: _Optional[str] = ..., original_ref: _Optional[str] = ..., mime_type: _Optional[str] = ..., storage_key: _Optional[str] = ..., image_data: _Optional[bytes] = ..., page_number: _Optional[int] = ..., source_type: _Optional[str] = ..., markdown_target: _Optional[str] = ...) -> None: ...
 
 class ReadResponse(_message.Message):
     __slots__ = ("markdown_content", "image_refs", "image_dir_path", "metadata", "error")

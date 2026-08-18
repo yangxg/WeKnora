@@ -506,7 +506,12 @@ type ImageMultimodalPayload struct {
 	EnableOCR       bool   `json:"enable_ocr"`
 	EnableCaption   bool   `json:"enable_caption"`
 	Language        string `json:"language,omitempty"`          // Request locale for {{language}} in prompt templates
-	ImageSourceType string `json:"image_source_type,omitempty"` // Source type of the image (e.g., "scanned_pdf")
+	ImageSourceType string `json:"image_source_type,omitempty"` // Document-level source type (legacy)
+	// v2 per-image parser provenance. Omitted for in-flight/v1 tasks; workers
+	// must preserve empty/zero rather than infer values from URLs or filenames.
+	ImagePageNumber       uint32 `json:"image_page_number,omitempty"`
+	ImageParserSourceType string `json:"image_parser_source_type,omitempty"`
+	ImageMarkdownTarget   string `json:"image_markdown_target,omitempty"`
 	// Attempt links this image task back to the parent ProcessDocument
 	// attempt so the worker can record its image[i] subspan under the
 	// same attempt's multimodal stage span.

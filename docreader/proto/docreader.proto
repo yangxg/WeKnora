@@ -14,6 +14,19 @@ service DocReader {
   // with bounded memory on both ends.
   rpc ReadStream(ReadRequest) returns (stream ReadStreamResponse) {}
   rpc ListEngines(ListEnginesRequest) returns (ListEnginesResponse) {}
+  // GetRuntimeInfo returns only an allowlisted parsing configuration and build
+  // identity. It deliberately excludes endpoint/TLS/auth/proxy/SSRF values.
+  rpc GetRuntimeInfo(RuntimeInfoRequest) returns (RuntimeInfoResponse) {}
+}
+
+message RuntimeInfoRequest {}
+
+message RuntimeInfoResponse {
+  // Values that can affect parser output (PDF layout/rendering, DOCX and
+  // MarkItDown limits). Not a dump of the service environment.
+  map<string, string> parsing_config = 1;
+  map<string, string> library_versions = 2;
+  string image_tag = 3;
 }
 
 message ReadConfig {
@@ -41,6 +54,11 @@ message ImageRef {
   string mime_type = 3;
   string storage_key = 4;    // download URL from shared storage
   bytes  image_data = 5;     // inline bytes fallback
+  // v2 parser provenance. All fields are additive: missing/zero means an
+  // older producer and consumers must preserve v1 behavior rather than infer.
+  uint32 page_number = 6;    // 1-based PDF page; 0 when not applicable
+  string source_type = 7;    // scanned_page | embedded_image | vector_figure
+  string markdown_target = 8; // exact ![]() destination before storage rewrite
 }
 
 message ReadResponse {

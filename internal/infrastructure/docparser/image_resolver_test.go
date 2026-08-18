@@ -278,6 +278,35 @@ func TestResolveAndStore_MultipleFormats(t *testing.T) {
 	}
 }
 
+func TestResolveAndStorePreservesImageRefV2Provenance(t *testing.T) {
+	png := createTestPNG(200, 150)
+	result := &types.ReadResult{
+		MarkdownContent: `![图](images/opaque-uuid.png)`,
+		ImageRefs: []types.ImageRef{{
+			Filename:       "opaque-uuid.png",
+			OriginalRef:    "images/opaque-uuid.png",
+			MimeType:       "image/png",
+			ImageData:      png,
+			PageNumber:     7,
+			SourceType:     "embedded_image",
+			MarkdownTarget: "images/opaque-uuid.png",
+		}},
+	}
+
+	svc := &captureSaveBytes{}
+	out, images, err := NewImageResolver().ResolveAndStore(context.Background(), result, svc, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "local://test/") || len(images) != 1 {
+		t.Fatalf("expected one stored v2 image, out=%q images=%d", out, len(images))
+	}
+	stored := images[0]
+	if stored.PageNumber != 7 || stored.SourceType != "embedded_image" || stored.MarkdownTarget != "images/opaque-uuid.png" {
+		t.Fatalf("v2 provenance lost: %#v", stored)
+	}
+}
+
 func TestResolveAndStoreMarkdownImageWithTitle(t *testing.T) {
 	png := createTestPNG(200, 150)
 	result := &types.ReadResult{
