@@ -122,6 +122,24 @@ Measured on this baseline, test-only, no fork production change proposed:
 - **Image resolution rewrites markdown before chunking.** `knowledge_process.go` runs `ResolveAndStore` / `ResolveRemoteImages` ahead of splitting, so offsets address the rewritten body when a locally promoted `.md` carries resolvable images. Fail-closed; revisited at W3.
 - **Query text reaches logs and langfuse spans on the search path.** Not on the certified `hybrid-search` route's chat pipeline, but real integration must still disable query logging and telemetry before any governed knowledge base is pointed at a live deployment.
 
+## M-c ImageRef v2 protocol debt (not yet made)
+
+ADR-0024 M-c added a local C-grade `pdf-docreader-builtin-image-gap-v1` lane in `chengdu_hos`. The docreader response has `ImageRef.filename`/`original_ref`/`mime_type`/`storage_key`/`image_data`, but **no page number, no source type, and no stable Markdown target**. Project-side code can currently infer page/type from PDFParser filename conventions (`_page_N`, `_pN_imgM`, `_pN_figM`), but records it as `filename_convention_unverified`; this is deliberately not an Evidence locator and every output stays `pending` until human image-gap checks finish.
+
+**Proposed divergence, not implemented:** add backward-compatible fields to `docreader.proto`'s `ImageRef`:
+
+```proto
+uint32 page_number = <new field number>;  // 1-based PDF page; 0 when not applicable
+string source_type = <new field number>;  // scanned_page | embedded_image | vector_figure
+string markdown_target = <new field number>; // exact emitted Markdown target before storage rewrite
+```
+
+The Python PDF parser already knows all three facts at its image-production sites: scanned pages (`_page_N`), embedded figures (`_pN_imgM`), and vector clips (`_pN_figM`). It should populate them directly rather than requiring a consumer to reverse-engineer filenames. The Go app must preserve them through its docreader client and image resolution path. Existing consumers remain source/binary compatible because proto fields are additive; missing fields mean v1 semantics, not guessed v2 values.
+
+**Why this belongs in fork rather than ResearchFlow:** page/source/target are facts produced by the parser, not governance choices. A parser that chooses a filename scheme owns the stable structured equivalent. ResearchFlow only decides whether those facts meet a materialization profile's gate.
+
+**Migration boundary:** when this is implemented, projects create a new `*-image-gap-v2` profile requiring `ImageRef` provenance. They do not rewrite, reclassify, or auto-promote v1 records. The previous filename-convention inference remains a C-grade, human-reviewed historical fact.
+
 ## I0-0 proposed divergence (not yet made)
 
 Read-only audit for ResearchFlow's real-world validation plan, unit I0-0. **Nothing in this repository is changed yet.** This section exists because the branch discipline above requires a proposed divergence to be recorded here before the change is made.
